@@ -420,6 +420,9 @@ function showHandResult() {
 /**
  * Initialize a brand new match
  */
+let autoBidTimer = null;
+let autoPlayTimer = null;
+
 function initNewMatch() {
     hideBiddingPanel();
     document.getElementById('overlay').classList.add('hidden');
@@ -634,3 +637,11 @@ window.onload = () => {
     initNewMatch();
 };
 
+
+// Fix 1: Timer variables and clear on init
+let timerHandles = { autoBid: null, autoPlay: null };
+
+function clearAllTimers() {
+    if (timerHandles.autoBid) { clearTimeout(timerHandles.autoBid); timerHandles.autoBid = null; }
+    if (timerHandles.autoPlay) { clearTimeout(timerHandles.autoPlay); timerHandles.autoPlay = null; }
+}
