@@ -8,26 +8,29 @@ const RANK_VALUE = {
 };
 
 let gameState = {
+    phase: 'BIDDING', // 'BIDDING' | 'PLAYING' | 'HAND_OVER'
+    activePlayer: 1, // whose turn it is during bidding (0 = South/human)
+    currentBid: 0, // 0 = no bid yet; opening minimum is 7
     deck: [],
     hands: [[], [], [], []], // 0: South, 1: West, 2: North, 3: East
     dealerIndex: 0,
     currentPlayer: 0,
     bidding: {
-        currentBid: 5,
+        currentBid: 0, // kept in sync with gameState.currentBid
         highBidder: null,
         trumpSuit: null,
-        activePlayer: 1,
+        activePlayer: 1, // kept in sync with gameState.activePlayer
         biddingComplete: false,
         history: []
     },
     trick: {
-        cards: [], // Array of { player, card }
+        cards: [],
         leadSuit: null,
         count: 0
     },
     scores: {
-        team1: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 }, // South (0) & North (2)
-        team2: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 }  // West (1) & East (3)
+        team1: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 },
+        team2: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 }
     },
     matchScore: {
         team1: 0,
@@ -83,29 +86,78 @@ function deal() {
     initBidding();
 }
 
+function hideBiddingPanel() {
+    const panel = document.getElementById('bidding-panel');
+    if (panel) panel.classList.add('hidden');
+}
+
+function setBiddingTurn(playerIdx) {
+    gameState.activePlayer = playerIdx;
+    gameState.bidding.activePlayer = playerIdx;
+}
+
+function setCurrentBid(amount) {
+    gameState.currentBid = amount;
+    gameState.bidding.currentBid = amount;
+}
+
 function initBidding() {
+    gameState.phase = 'BIDDING';
+    setCurrentBid(0);
+    setBiddingTurn((gameState.dealerIndex + 1) % 4);
     gameState.bidding = {
-        currentBid: 5,
+        currentBid: gameState.currentBid,
         highBidder: null,
         trumpSuit: null,
-        activePlayer: (gameState.dealerIndex + 1) % 4,
+        activePlayer: gameState.activePlayer,
         biddingComplete: false,
         history: []
     };
+    hideBiddingPanel();
     updateUI();
     checkAutoBid();
 }
 
-function checkAutoBid() {
-    if (gameState.bidding.biddingComplete) return;
+function checkBiddingComplete() {
+    // Bidding ends when there are 3 successful bids from different players
+    // OR after all 4 players have had a turn (with passes)
+    const bids = gameState.bidding.history.filter(h => h.action === 'bid' || h.action === 'take');
+    return bids.length >= 3 || gameState.bidding.history.length >= 4;
+}
+
+function finishBidding() {
+    const b = gameState.bidding;
+    if (b.highBidder === null) {
+        b.highBidder = gameState.dealerIndex;
+        setCurrentBid(7);
+        b.trumpSuit = 'No-Trump';
+    }
+    b.biddingComplete = true;
+    gameState.phase = 'PLAYING';
+    hideBiddingPanel();
     
-    if (gameState.bidding.activePlayer !== 0) {
+    // Reset trick-taking state
+    gameState.currentPlayer = (gameState.dealerIndex + 1) % 4;
+    gameState.trick = { cards: [], leadSuit: null, count: 0 };
+    gameState.scores = {
+        team1: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 },
+        team2: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 }
+    };
+
+    updateUI();
+    checkAutoPlay();
+}
+
+function checkAutoBid() {
+    if (gameState.phase !== 'BIDDING' || gameState.bidding.biddingComplete) return;
+    
+    if (gameState.activePlayer !== 0) {
         setTimeout(() => {
-            const aiBid = getAIBid(gameState.bidding.activePlayer, gameState.bidding.currentBid);
+            const aiBid = getAIBid(gameState.activePlayer, gameState.currentBid);
             if (aiBid) {
-                placeBid(gameState.bidding.activePlayer, aiBid.amount, aiBid.suit);
+                placeBid(gameState.activePlayer, aiBid.amount, aiBid.suit);
             } else {
-                passBid(gameState.bidding.activePlayer);
+                passBid(gameState.activePlayer);
             }
         }, 1000);
     }
@@ -156,19 +208,15 @@ function getAIBid(playerIdx, currentBid) {
         }
     }
 
-    let bidAmount = 0;
-    if (maxScore >= 13) bidAmount = 10;
-    else if (maxScore >= 11) bidAmount = 9;
-    else if (maxScore >= 9) bidAmount = 8;
-    else if (maxScore >= 7) bidAmount = 7;
+    // Opening bid is 7; otherwise strictly higher than the current bid
+    const minBid = Math.max(7, currentBid + 1);
+    let bidAmount = minBid;
 
-    // Adjust to ensure we always bid at least 7 if we decide to bid
-    if (bidAmount > 0 && bidAmount < 7) bidAmount = 7;
-
-    // Dealer can "take" the bid if it equals the current bid
-    if (playerIdx === gameState.dealerIndex && bidAmount === currentBid && currentBid >= 7) {
-        return { amount: currentBid, suit: bestSuit };
-    }
+    // Adjust bid based on hand strength
+    if (maxScore >= 13) bidAmount = Math.max(bidAmount, 10);
+    else if (maxScore >= 11) bidAmount = Math.max(bidAmount, 9);
+    else if (maxScore >= 9) bidAmount = Math.max(bidAmount, 8);
+    else if (maxScore >= 7) bidAmount = Math.max(bidAmount, 7);
 
     if (bidAmount > currentBid) {
         return { amount: bidAmount, suit: bestSuit };
@@ -178,65 +226,50 @@ function getAIBid(playerIdx, currentBid) {
 }
 
 function placeBid(playerIdx, amount, suit) {
+    hideBiddingPanel();
     const b = gameState.bidding;
-    if (b.biddingComplete || playerIdx !== b.activePlayer) return;
+    if (gameState.phase !== 'BIDDING' || b.biddingComplete || playerIdx !== gameState.activePlayer) return;
 
-    const isDealer = playerIdx === gameState.dealerIndex;
-    const isTaking = isDealer && amount === b.currentBid && b.highBidder !== null;
+    // Opening bid must be at least 7; every later bid must be strictly higher
+    if (gameState.currentBid === 0 && amount < 7) return;
+    if (amount <= gameState.currentBid) return;
 
-    if (amount > b.currentBid || isTaking) {
-        b.currentBid = amount;
-        b.highBidder = playerIdx;
-        b.trumpSuit = suit;
-        b.history.push({ player: playerIdx, amount, suit, action: isTaking ? 'take' : 'bid' });
-        
-        if (checkBiddingComplete()) finishBidding();
-        else nextBidder();
+    setCurrentBid(amount);
+    b.highBidder = playerIdx;
+    b.trumpSuit = suit;
+    b.history.push({ player: playerIdx, amount, suit, action: 'bid' });
+
+    if (checkBiddingComplete()) {
+        gameState.phase = 'PLAYING';
+        finishBidding();
+    } else {
+        gameState.phase = 'BIDDING';
+        nextBidder();
     }
 }
 
 function passBid(playerIdx) {
+    hideBiddingPanel();
     const b = gameState.bidding;
-    if (b.biddingComplete || playerIdx !== b.activePlayer) return;
+    if (gameState.phase !== 'BIDDING' || b.biddingComplete || playerIdx !== gameState.activePlayer) return;
 
     b.history.push({ player: playerIdx, action: 'pass' });
-    
-    if (checkBiddingComplete()) finishBidding();
-    else nextBidder();
+
+    if (checkBiddingComplete()) {
+        gameState.phase = 'PLAYING';
+        finishBidding();
+    } else {
+        gameState.phase = 'BIDDING';
+        nextBidder();
+    }
 }
 
 function nextBidder() {
-    gameState.bidding.activePlayer = (gameState.bidding.activePlayer + 1) % 4;
+    gameState.phase = 'BIDDING';
+    setBiddingTurn((gameState.activePlayer + 1) % 4);
+    hideBiddingPanel();
     updateUI();
     checkAutoBid();
-}
-
-function checkBiddingComplete() {
-    // Bidding ends when there are 3 successful bids from different players
-    // OR after all 4 players have had a turn (with passes)
-    const bids = gameState.bidding.history.filter(h => h.action === 'bid' || h.action === 'take');
-    return bids.length >= 3 || gameState.bidding.history.length >= 4;
-}
-
-function finishBidding() {
-    const b = gameState.bidding;
-    if (b.highBidder === null) {
-        b.highBidder = gameState.dealerIndex;
-        b.currentBid = 7;
-        b.trumpSuit = 'No-Trump';
-    }
-    b.biddingComplete = true;
-    
-    // Reset trick-taking state
-    gameState.currentPlayer = (gameState.dealerIndex + 1) % 4;
-    gameState.trick = { cards: [], leadSuit: null, count: 0 };
-    gameState.scores = {
-        team1: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 },
-        team2: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 }
-    };
-
-    updateUI();
-    checkAutoPlay();
 }
 
 /**
@@ -352,6 +385,7 @@ function calculateFinalScore() {
 }
 
 function showHandResult() {
+    gameState.phase = 'HAND_OVER';
     const overlay = document.getElementById('overlay');
     const title = document.getElementById('overlay-title');
     const msg = document.getElementById('overlay-msg');
@@ -374,17 +408,35 @@ function showHandResult() {
         btn.innerText = "Next Hand";
         btn.onclick = () => {
             gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
+            gameState.phase = 'BIDDING';
             overlay.classList.add('hidden');
             deal();
         };
     }
     overlay.classList.remove('hidden');
-    updateUI();
+    hideBiddingPanel();
+}
+
+/**
+ * Initialize a brand new match
+ */
+function initNewMatch() {
+    hideBiddingPanel();
+    document.getElementById('overlay').classList.add('hidden');
+
+    gameState.phase = 'BIDDING';
+    gameState.matchScore = { team1: 0, team2: 0 };
+    gameState.dealerIndex = 0;
+    gameState.currentPlayer = 0;
+    setCurrentBid(0);
+    setBiddingTurn(1);
+
+    deal();
 }
 
 function checkAutoPlay() {
-    if (!gameState.bidding.biddingComplete) return;
-    if (gameState.currentPlayer === 0) return; 
+    if (gameState.phase !== 'PLAYING') return;
+    if (gameState.currentPlayer === 0) return;
 
     setTimeout(() => {
         const hand = gameState.hands[gameState.currentPlayer];
@@ -508,11 +560,11 @@ function updateUI() {
     // Status Bar
     let statusText = `Match: S/N ${m.team1} - W/E ${m.team2} | `;
     
-    if (!b.biddingComplete) {
+    if (gameState.phase === 'BIDDING') {
         const pNames = ['South (You)', 'West', 'North (Partner)', 'East'];
-        statusText += `Bidding: ${pNames[b.activePlayer]}'s turn. Current Bid: ${b.currentBid === 5 ? 'None' : b.currentBid + ' ' + (b.trumpSuit || '')}`;
-    } else {
-        statusText += `Contract: ${b.currentBid} ${b.trumpSuit} by Player ${b.highBidder + 1}. Team 1: ${s.team1.tricks + s.team1.bonus} | Team 2: ${s.team2.tricks + s.team2.bonus}`;
+        statusText += `Bidding: ${pNames[gameState.activePlayer]}'s turn. Current Bid: ${gameState.currentBid === 0 ? 'None' : gameState.currentBid + ' ' + (b.trumpSuit || '')}`;
+    } else if (gameState.phase === 'PLAYING') {
+        statusText += `Contract: ${gameState.currentBid} ${b.trumpSuit} by Player ${b.highBidder + 1}. Team 1: ${s.team1.tricks + s.team1.bonus} | Team 2: ${s.team2.tricks + s.team2.bonus}`;
     }
     status.innerText = statusText;
     
@@ -524,7 +576,7 @@ function updateUI() {
         const isHuman = idx === 0;
         
         gameState.hands[idx].forEach(card => {
-            const cardEl = renderCard(card, !isHuman, (isHuman && b.biddingComplete && gameState.currentPlayer === 0) ? (c) => playCard(idx, c) : null);
+            const cardEl = renderCard(card, !isHuman, (isHuman && gameState.phase === 'PLAYING' && gameState.currentPlayer === 0) ? (c) => playCard(idx, c) : null);
             container.appendChild(cardEl);
         });
     });
@@ -544,25 +596,21 @@ function updateUI() {
         centerArea.appendChild(cardEl);
     });
 
-    // Bidding Panel - Always hide if bidding is over
-    if (b.biddingComplete) {
-        bidPanel.classList.add('hidden');
-        return;
-    }
-    
-    if (b.activePlayer === 0) {
+    // Always hide unless it is BIDDING and the human's turn
+    document.getElementById('bidding-panel').classList.add('hidden');
+    if (gameState.phase === 'BIDDING' && gameState.activePlayer === 0) {
         bidPanel.classList.remove('hidden');
         bidOptions.innerHTML = '';
-        
-        // Bids start from 7
-        const min = Math.max(7, b.currentBid + 1);
-        for (let i = min; i <= 12; i++) {
+
+        const minBid = Math.max(7, gameState.currentBid + 1);
+        for (let i = minBid; i <= 12; i++) {
             SUITS.concat(['No-Trump']).forEach(s => {
                 const btn = document.createElement('button');
                 btn.className = 'bid-btn';
                 btn.innerText = `${i} ${s}`;
                 btn.onclick = () => {
-                    bidPanel.classList.add('hidden');
+                    document.getElementById('bidding-panel').classList.add('hidden');
+                    gameState.phase = 'BIDDING';
                     placeBid(0, i, s);
                 };
                 bidOptions.appendChild(btn);
@@ -570,47 +618,19 @@ function updateUI() {
             bidOptions.appendChild(document.createElement('br'));
         }
 
-        // Dealer "Take" option (minimum current bid must be 7)
-        if (gameState.dealerIndex === 0 && b.currentBid >= 7 && b.highBidder !== 0) {
-            const btn = document.createElement('button');
-            btn.className = 'bid-btn';
-            btn.innerText = `Take ${b.currentBid} ${b.trumpSuit || ''}`;
-            btn.onclick = () => {
-                bidPanel.classList.add('hidden');
-                placeBid(0, b.currentBid, b.trumpSuit);
-            };
-            bidOptions.appendChild(btn);
-        }
-
         const passBtn = document.createElement('button');
         passBtn.className = 'bid-btn';
         passBtn.innerText = 'Pass';
         passBtn.onclick = () => {
-            bidPanel.classList.add('hidden');
+            document.getElementById('bidding-panel').classList.add('hidden');
+            gameState.phase = 'BIDDING';
             passBid(0);
         };
         bidOptions.appendChild(passBtn);
-    } else {
-        bidPanel.classList.add('hidden');
     }
-}
-
-/**
- * Initialize a brand new match
- */
-function initNewMatch() {
-    // Hide overlay
-    document.getElementById('overlay').classList.add('hidden');
-    
-    // Reset scores and state
-    gameState.matchScore = { team1: 0, team2: 0 };
-    gameState.dealerIndex = 0;
-    gameState.currentPlayer = 0;
-    
-    // Deal and start bidding
-    deal();
 }
 
 window.onload = () => {
     initNewMatch();
 };
+
