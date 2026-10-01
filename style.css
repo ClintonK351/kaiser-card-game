@@ -87,6 +87,43 @@ body {
 .hidden {
     display: none !important;
 }
+/* Dealer Badge */
+.dealer-badge {
+    position: absolute;
+    background: linear-gradient(135deg, #f1c40f, #e67e22);
+    color: #1b1b1b;
+    font-weight: bold;
+    font-size: 0.9em;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 2px solid white;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.dealer-chip {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 22px;
+    height: 22px;
+    background: white;
+    color: #c0392b;
+    border-radius: 50%;
+    font-weight: 900;
+    font-size: 0.85em;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.dealer-pos-0 { bottom: 180px; left: 50%; transform: translateX(-50%); }
+.dealer-pos-1 { left: 130px; top: 50%; transform: translateY(-50%); }
+.dealer-pos-2 { top: 130px; left: 50%; transform: translateX(-50%); }
+.dealer-pos-3 { right: 130px; top: 50%; transform: translateY(-50%); }
 
 /* Bidding Panel */
 #bidding-panel {
