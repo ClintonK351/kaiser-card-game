@@ -581,7 +581,15 @@ function updateUI() {
         const isHuman = idx === 0;
         
         gameState.hands[idx].forEach(card => {
-            const cardEl = renderCard(card, !isHuman, (isHuman && gameState.phase === 'PLAYING' && gameState.currentPlayer === 0) ? (c) => playCard(idx, c) : null);
+            const canPlay = (isHuman && gameState.phase === 'PLAYING' && gameState.currentPlayer === 0);
+            const onClick = canPlay ? (c) => playCard(idx, c) : () => {
+                if (gameState.phase !== 'PLAYING') {
+                    document.getElementById('status-bar').innerText = 'Not your turn! Wait for bidding to end.';
+                } else if (gameState.currentPlayer !== 0) {
+                    document.getElementById('status-bar').innerText = 'Not your turn! It is Player ' + (gameState.currentPlayer + 1) + ' turn.';
+                }
+            };
+            const cardEl = renderCard(card, !isHuman, onClick);
             container.appendChild(cardEl);
         });
     });
