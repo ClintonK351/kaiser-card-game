@@ -290,8 +290,18 @@ function isValidPlay(playerIdx, card) {
 }
 
 function playCard(playerIdx, card) {
-    if (!gameState.bidding.biddingComplete) return;
-    if (playerIdx !== gameState.currentPlayer) return;
+    if (gameState.phase !== 'PLAYING') {
+        document.getElementById('status-bar').innerText = "Not playing — bidding isn't finished.";
+        return;
+    }
+    if (!gameState.bidding.biddingComplete) {
+        document.getElementById('status-bar').innerText = "Bidding not complete yet.";
+        return;
+    }
+    if (playerIdx !== gameState.currentPlayer) {
+        document.getElementById('status-bar').innerText = "Not your turn — current player is " + (gameState.currentPlayer + 1);
+        return;
+    }
     if (gameState.trick.cards.length >= 4) return;
 
     if (!isValidPlay(playerIdx, card)) {
@@ -299,7 +309,15 @@ function playCard(playerIdx, card) {
         return;
     }
 
-    const cardIdx = gameState.hands[playerIdx].findIndex(c => c.rank === card.rank && c.suit === card.suit);
+    // Find card by reference first, then by properties
+    let cardIdx = gameState.hands[playerIdx].indexOf(card);
+    if (cardIdx === -1) {
+        cardIdx = gameState.hands[playerIdx].findIndex(c => c.rank === card.rank && c.suit === card.suit);
+    }
+    if (cardIdx === -1) {
+        console.error("Card not found in hand:", card, "hand:", gameState.hands[playerIdx]);
+        return;
+    }
     gameState.hands[playerIdx].splice(cardIdx, 1);
 
     if (gameState.trick.cards.length === 0) {
