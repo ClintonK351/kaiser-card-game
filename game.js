@@ -162,6 +162,10 @@ function getAIBid(playerIdx, currentBid) {
     else if (maxScore >= 9) bidAmount = 8;
     else if (maxScore >= 7) bidAmount = 7;
 
+    // Adjust to ensure we always bid at least 7 if we decide to bid
+    if (bidAmount > 0 && bidAmount < 7) bidAmount = 7;
+
+    // Dealer can "take" the bid if it equals the current bid
     if (playerIdx === gameState.dealerIndex && bidAmount === currentBid && currentBid >= 7) {
         return { amount: currentBid, suit: bestSuit };
     }
@@ -208,7 +212,10 @@ function nextBidder() {
 }
 
 function checkBiddingComplete() {
-    return gameState.bidding.history.length >= 4;
+    // Bidding ends when there are 3 successful bids from different players
+    // OR after all 4 players have had a turn (with passes)
+    const bids = gameState.bidding.history.filter(h => h.action === 'bid' || h.action === 'take');
+    return bids.length >= 3 || gameState.bidding.history.length >= 4;
 }
 
 function finishBidding() {
@@ -537,35 +544,51 @@ function updateUI() {
         centerArea.appendChild(cardEl);
     });
 
-    // Bidding Panel
-    if (!b.biddingComplete && b.activePlayer === 0) {
+    // Bidding Panel - Always hide if bidding is over
+    if (b.biddingComplete) {
+        bidPanel.classList.add('hidden');
+        return;
+    }
+    
+    if (b.activePlayer === 0) {
         bidPanel.classList.remove('hidden');
         bidOptions.innerHTML = '';
         
-        const min = b.currentBid + 1;
-        for (let i = Math.max(6, min); i <= 12; i++) {
+        // Bids start from 7
+        const min = Math.max(7, b.currentBid + 1);
+        for (let i = min; i <= 12; i++) {
             SUITS.concat(['No-Trump']).forEach(s => {
                 const btn = document.createElement('button');
                 btn.className = 'bid-btn';
                 btn.innerText = `${i} ${s}`;
-                btn.onclick = () => placeBid(0, i, s);
+                btn.onclick = () => {
+                    bidPanel.classList.add('hidden');
+                    placeBid(0, i, s);
+                };
                 bidOptions.appendChild(btn);
             });
             bidOptions.appendChild(document.createElement('br'));
         }
 
-        if (gameState.dealerIndex === 0 && b.currentBid >= 6 && b.highBidder !== 0) {
+        // Dealer "Take" option (minimum current bid must be 7)
+        if (gameState.dealerIndex === 0 && b.currentBid >= 7 && b.highBidder !== 0) {
             const btn = document.createElement('button');
             btn.className = 'bid-btn';
-            btn.innerText = `Take ${b.currentBid} ${b.trumpSuit}`;
-            btn.onclick = () => placeBid(0, b.currentBid, b.trumpSuit);
+            btn.innerText = `Take ${b.currentBid} ${b.trumpSuit || ''}`;
+            btn.onclick = () => {
+                bidPanel.classList.add('hidden');
+                placeBid(0, b.currentBid, b.trumpSuit);
+            };
             bidOptions.appendChild(btn);
         }
 
         const passBtn = document.createElement('button');
         passBtn.className = 'bid-btn';
         passBtn.innerText = 'Pass';
-        passBtn.onclick = () => passBid(0);
+        passBtn.onclick = () => {
+            bidPanel.classList.add('hidden');
+            passBid(0);
+        };
         bidOptions.appendChild(passBtn);
     } else {
         bidPanel.classList.add('hidden');
