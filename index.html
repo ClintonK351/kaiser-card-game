@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kaiser (3-Spot)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="status-bar">
+    Waiting for deal...
+  </div>
+
+  <div id="game-container">
+    <div id="north" class="player-area"></div>
+    <div id="west" class="player-area"></div>
+    <div id="east" class="player-area"></div>
+    
+    <div id="center-area">
+      <div id="bidding-panel" class="hidden">
+        <h3>Your Bid</h3>
+        <div id="bid-options"></div>
+      </div>
+      <div id="played-cards"></div>
+      
+      <div id="overlay" class="hidden">
+        <div id="overlay-content">
+          <h2 id="overlay-title">Hand Over</h2>
+          <p id="overlay-msg"></p>
+          <button id="overlay-btn">Next Hand</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="south" class="player-area"></div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

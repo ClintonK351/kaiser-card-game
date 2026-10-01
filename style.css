@@ -1,0 +1,139 @@
+body {
+    background-color: #1b4d3e;
+    color: white;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+#game-container {
+    position: relative;
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#status-bar {
+    background: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    text-align: center;
+    font-size: 1.2em;
+}
+
+/* Table Layout */
+.player-area {
+    position: absolute;
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+    align-items: center;
+}
+
+#south { bottom: 20px; width: 100%; height: 150px; }
+#north { top: 20px; width: 100%; height: 100px; }
+#west { left: 20px; top: 0; bottom: 0; width: 100px; flex-direction: column; }
+#east { right: 20px; top: 0; bottom: 0; width: 100px; flex-direction: column; }
+
+#center-area {
+    width: 300px;
+    height: 300px;
+    border: 2px dashed rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* Card Styling */
+.card {
+    width: 80px;
+    height: 120px;
+    background-color: white;
+    border-radius: 8px;
+    color: black;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 8px;
+    box-sizing: border-box;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+}
+
+.card.red { color: #d40000; }
+.card.black { color: #000; }
+
+.card.back {
+    background: linear-gradient(135deg, #2c3e50 25%, #34495e 25%, #34495e 50%, #2c3e50 50%, #2c3e50 75%, #34495e 75%, #34495e 100%);
+    background-size: 20px 20px;
+    border: 2px solid white;
+}
+
+.card-rank { font-weight: bold; font-size: 1.1em; }
+.card-suit { font-size: 1.5em; align-self: center; }
+
+/* Bidding Panel */
+#bidding-panel {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.9);
+    color: black;
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 100;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+.bid-btn {
+    padding: 5px 10px;
+    margin: 3px;
+    cursor: pointer;
+}
+
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    border-radius: 50%;
+}
+
+#overlay-content {
+    text-align: center;
+    color: white;
+    padding: 20px;
+}
+
+#overlay-btn {
+    padding: 10px 25px;
+    font-size: 1.1em;
+    cursor: pointer;
+    margin-top: 15px;
+    background: #f1c40f;
+    border: none;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+#overlay-btn:hover {
+    background: #d4ac0d;
+}
