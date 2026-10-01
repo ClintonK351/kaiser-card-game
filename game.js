@@ -351,20 +351,13 @@ function showHandResult() {
     const btn = document.getElementById('overlay-btn');
     const s = gameState.scores;
 
-    overlay.classList.remove('hidden');
-    
     // Check match win condition
-    if (Math.abs(gameState.matchScore.team1) >= 52 || Math.abs(gameState.matchScore.team2) >= 52) {
+    if (gameState.matchScore.team1 >= 52 || gameState.matchScore.team2 >= 52) {
         const winner = gameState.matchScore.team1 >= 52 ? "Team South/North" : "Team West/East";
         title.innerText = "Match Over!";
-        msg.innerHTML = `<h3>${winner} Wins!</h3><p>Final Score: ${gameState.matchScore.team1} to ${gameState.matchScore.team2}</p>`;
+        msg.innerHTML = `<h3>${winner} Wins!</h3><p>Final Score: S/N ${gameState.matchScore.team1} - W/E ${gameState.matchScore.team2}</p>`;
         btn.innerText = "New Match";
-        btn.onclick = () => {
-            gameState.matchScore = { team1: 0, team2: 0 };
-            gameState.dealerIndex = 0;
-            overlay.classList.add('hidden');
-            deal();
-        };
+        btn.onclick = initNewMatch;
     } else {
         title.innerText = "Hand Finished";
         msg.innerHTML = `
@@ -378,6 +371,7 @@ function showHandResult() {
             deal();
         };
     }
+    overlay.classList.remove('hidden');
     updateUI();
 }
 
@@ -500,6 +494,9 @@ function updateUI() {
     const s = gameState.scores;
     const m = gameState.matchScore;
     const status = document.getElementById('status-bar');
+    const bidPanel = document.getElementById('bidding-panel');
+    const bidOptions = document.getElementById('bid-options');
+    const centerArea = document.getElementById('played-cards');
     
     // Status Bar
     let statusText = `Match: S/N ${m.team1} - W/E ${m.team2} | `;
@@ -512,8 +509,7 @@ function updateUI() {
     }
     status.innerText = statusText;
     
-    // ... remaining UI logic ...
-
+    // Render Hands
     const playerIds = ['south', 'west', 'north', 'east'];
     playerIds.forEach((id, idx) => {
         const container = document.getElementById(id);
@@ -521,11 +517,12 @@ function updateUI() {
         const isHuman = idx === 0;
         
         gameState.hands[idx].forEach(card => {
-            const cardEl = renderCard(card, !isHuman, (isHuman && gameState.currentPlayer === 0) ? (c) => playCard(idx, c) : null);
+            const cardEl = renderCard(card, !isHuman, (isHuman && b.biddingComplete && gameState.currentPlayer === 0) ? (c) => playCard(idx, c) : null);
             container.appendChild(cardEl);
         });
     });
 
+    // Render Trick in Center
     centerArea.innerHTML = '';
     gameState.trick.cards.forEach((played) => {
         const cardEl = renderCard(played.card, false);
@@ -540,6 +537,7 @@ function updateUI() {
         centerArea.appendChild(cardEl);
     });
 
+    // Bidding Panel
     if (!b.biddingComplete && b.activePlayer === 0) {
         bidPanel.classList.remove('hidden');
         bidOptions.innerHTML = '';
@@ -574,6 +572,22 @@ function updateUI() {
     }
 }
 
-window.onload = () => {
+/**
+ * Initialize a brand new match
+ */
+function initNewMatch() {
+    // Hide overlay
+    document.getElementById('overlay').classList.add('hidden');
+    
+    // Reset scores and state
+    gameState.matchScore = { team1: 0, team2: 0 };
+    gameState.dealerIndex = 0;
+    gameState.currentPlayer = 0;
+    
+    // Deal and start bidding
     deal();
+}
+
+window.onload = () => {
+    initNewMatch();
 };
