@@ -104,7 +104,9 @@ function setCurrentBid(amount) {
 function initBidding() {
     gameState.phase = 'BIDDING';
     setCurrentBid(0);
-    setBiddingTurn((gameState.dealerIndex + 1) % 4);
+    // Human starts first when dealer; otherwise dealer's left starts
+    const firstBidder = (gameState.dealerIndex === 0) ? 0 : (gameState.dealerIndex + 1) % 4;
+    setBiddingTurn(firstBidder);
     gameState.bidding = {
         currentBid: gameState.currentBid,
         highBidder: null,
@@ -634,7 +636,10 @@ function updateUI() {
 }
 
 window.onload = () => {
-    initNewMatch();
+    document.getElementById('welcome-btn').onclick = () => {
+        document.getElementById('welcome-screen').style.display = 'none';
+        initNewMatch();
+    };
 };
 
 
