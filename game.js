@@ -133,17 +133,19 @@ function setCurrentBid(amount) {
 function initBidding() {
     gameState.phase = 'BIDDING';
     setCurrentBid(0);
-    const firstBidder = (gameState.dealerIndex === 0) ? 0 : (gameState.dealerIndex + 1) % 4;
-    setBiddingTurn(firstBidder);
+    // Dealer's left always bids first (standard card game rule)
+    setBiddingTurn((gameState.dealerIndex + 1) % 4);
     gameState.bidding = {
         currentBid: gameState.currentBid,
         highBidder: null,
         trumpSuit: null,
         activePlayer: gameState.activePlayer,
         biddingComplete: false,
-        history: []
+        history: [],
+        playerBids: [null, null, null, null]
     };
     hideBiddingPanel();
+    hideAllBidDialogs();
     updateUI();
     checkAutoBid();
 }
@@ -259,6 +261,7 @@ function placeBid(playerIdx, amount, suit) {
     setCurrentBid(amount);
     b.highBidder = playerIdx;
     b.trumpSuit = suit;
+    b.playerBids[playerIdx] = { amount, suit };
     b.history.push({ player: playerIdx, amount, suit, action: 'bid' });
 
     if (checkBiddingComplete()) {
@@ -277,6 +280,7 @@ function passBid(playerIdx) {
     if (gameState.phase !== 'BIDDING' || b.biddingComplete || playerIdx !== gameState.activePlayer) return;
 
     b.history.push({ player: playerIdx, action: 'pass' });
+    b.playerBids[playerIdx] = 'pass';
 
     if (checkBiddingComplete()) {
         gameState.phase = 'PLAYING';
@@ -605,13 +609,34 @@ function updateUI() {
     // Update bid dialog boxes during bidding
     if (gameState.phase === 'BIDDING' && b.currentBid > 0) {
         for (let i = 0; i < 4; i++) {
-            if (i === gameState.activePlayer) {
+            const playerBid = b.playerBids[i];
+            const el = document.getElementById(['bid-dialog-south','bid-dialog-west','bid-dialog-north','bid-dialog-east'][i]);
+            
+            if (playerBid === 'pass') {
+                // Show passed dialog
+                const pNames = ['South (You)', 'West', 'North (Partner)', 'East'];
+                el.classList.remove('hidden');
+                el.innerHTML = `
+                    <span class="player-name">${pNames[i].replace(' (You)', '')}:</span>
+                    <span class="bid-value">Pass</span>
+                `;
+            } else if (playerBid) {
+                // Show bid dialog
+                el.classList.remove('hidden');
+                el.innerHTML = `
+                    <span class="player-name">${pNames[i].replace(' (You)', '')}:</span>
+                    <span class="bid-value">${playerBid.amount}</span>
+                    <span class="suit">${playerBid.suit === 'No-Trump' ? '🚀' : SUIT_SYMBOLS[playerBid.suit] || ''}</span>
+                `;
+            } else if (i === gameState.activePlayer) {
+                // Current player's turn (hasn't acted yet)
                 showBidDialog(i, b.currentBid, b.trumpSuit, true);
             } else if (i === b.highBidder) {
+                // Current high bidder
                 showBidDialog(i, b.currentBid, b.trumpSuit, false);
             } else {
-                const el = document.getElementById(['bid-dialog-south','bid-dialog-west','bid-dialog-north','bid-dialog-east'][i]);
-                if (el) el.classList.add('hidden');
+                // No bid yet
+                el.classList.add('hidden');
             }
         }
     } else {
