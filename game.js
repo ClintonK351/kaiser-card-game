@@ -100,15 +100,17 @@ function hideBiddingPanel() {
 }
 
 function hideAllBidDialogs() {
-    for (let i = 0; i < 4; i++) {
-        const el = document.getElementById(`bid-dialog-${i}`);
+    const ids = ['bid-dialog-0', 'bid-dialog-1', 'bid-dialog-2', 'bid-dialog-3', 'bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
-    }
+    });
 }
 
 function showBidDialog(playerIdx, amount, suit, isCurrent) {
     const pNames = ['South (You)', 'West', 'North (Partner)', 'East'];
-    const dialog = document.getElementById(`bid-dialog-${playerIdx}`);
+    const dialogIds = ['bid-dialog-0', 'bid-dialog-1', 'bid-dialog-2', 'bid-dialog-3', 'bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
+    const dialog = document.getElementById(dialogIds[playerIdx]);
     if (!dialog) return;
     dialog.classList.remove('hidden');
     dialog.innerHTML = `
@@ -596,6 +598,22 @@ function updateUI() {
         statusText += `Contract: ${gameState.currentBid} ${b.trumpSuit} by Player ${b.highBidder + 1}. Team 1: ${s.team1.tricks + s.team1.bonus} | Team 2: ${s.team2.tricks + s.team2.bonus}`;
     }
     status.innerText = statusText;
+    
+    // Update bid dialog boxes during bidding
+    if (gameState.phase === 'BIDDING' && b.currentBid > 0) {
+        for (let i = 0; i < 4; i++) {
+            if (i === gameState.activePlayer) {
+                showBidDialog(i, b.currentBid, b.trumpSuit, true);
+            } else if (i === b.highBidder) {
+                showBidDialog(i, b.currentBid, b.trumpSuit, false);
+            } else {
+                const el = document.getElementById(['bid-dialog-0','bid-dialog-1','bid-dialog-2','bid-dialog-3','bid-dialog-south','bid-dialog-west','bid-dialog-north','bid-dialog-east'][i]);
+                if (el) el.classList.add('hidden');
+            }
+        }
+    } else {
+        hideAllBidDialogs();
+    }
     
     // Render Hands
     const playerIds = ['south', 'west', 'north', 'east'];
