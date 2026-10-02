@@ -1,266 +1,157 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
-    background-color: #1b4d3e;
-    color: white;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
+  font-family: Arial, sans-serif;
+  background-color: #1b4d2e;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
 }
 
 #game-container {
-    position: relative;
-    flex-grow: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+  position: relative;
+  width: 900px;
+  height: 650px;
+  background-color: #2e7d32;
+  border: 4px solid #1b5e20;
+  border-radius: 12px;
+  overflow: hidden;
 }
-
-#status-bar {
-    background: rgba(0, 0, 0, 0.5);
-    padding: 10px;
-    text-align: center;
-    font-size: 1.2em;
-}
-
-/* Table Layout */
-.player-area {
-    position: absolute;
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-    align-items: center;
-}
-
-#south { bottom: 20px; width: 100%; height: 150px; }
-#north { top: 20px; width: 100%; height: 100px; }
-#west { left: 20px; top: 0; bottom: 0; width: 100px; flex-direction: column; }
-#east { right: 20px; top: 0; bottom: 0; width: 100px; flex-direction: column; }
-
-#center-area {
-    width: 300px;
-    height: 300px;
-    border: 2px dashed rgba(255,255,255,0.2);
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    position: relative;
-}
-
-/* Card Styling */
-.card {
-    width: 80px;
-    height: 120px;
-    background-color: white;
-    border-radius: 8px;
-    color: black;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 8px;
-    box-sizing: border-box;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-    cursor: pointer;
-    user-select: none;
-    position: relative;
-    transition: transform 0.2s;
-}
-
-.card:hover {
-    transform: translateY(-10px);
-}
-
-.card.red { color: #d40000; }
-.card.black { color: #000; }
-
-.card.back {
-    background: linear-gradient(135deg, #2c3e50 25%, #34495e 25%, #34495e 50%, #2c3e50 50%, #2c3e50 75%, #34495e 75%, #34495e 100%);
-    background-size: 20px 20px;
-    border: 2px solid white;
-}
-
-.card-rank { font-weight: bold; font-size: 1.1em; }
-.card-suit { font-size: 1.5em; align-self: center; }
 
 .hidden {
-    display: none !important;
+  display: none !important;
 }
+
+/* Scoreboard */
+#scoreboard {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Player Areas */
+.player-area {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.player-name {
+  font-weight: bold;
+  font-size: 14px;
+  margin-bottom: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.cards-container {
+  display: flex;
+  gap: 4px;
+}
+
+.north { top: 15px; left: 50%; transform: translateX(-50%); }
+.south { bottom: 15px; left: 50%; transform: translateX(-50%); }
+.west  { left: 15px; top: 50%; transform: translateY(-50%); }
+.east  { right: 15px; top: 50%; transform: translateY(-50%); }
+
 /* Dealer Badge */
-.dealer-badge {
-    position: absolute;
-    background: linear-gradient(135deg, #f1c40f, #e67e22);
-    color: #1b1b1b;
-    font-weight: bold;
-    font-size: 0.9em;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 2px solid white;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-    z-index: 50;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    pointer-events: none;
-    transition: all 0.3s ease;
+#dealer-indicator {
+  position: absolute;
+  background: #ffc107;
+  color: #000;
+  font-weight: bold;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
 }
 
-.dealer-chip {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    width: 22px;
-    height: 22px;
-    background: white;
-    color: #c0392b;
-    border-radius: 50%;
-    font-weight: 900;
-    font-size: 0.85em;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+#dealer-indicator.dealer-0 { bottom: 115px; left: 50%; transform: translateX(-50%); }
+#dealer-indicator.dealer-1 { left: 150px; top: 50%; transform: translateY(-50%); }
+#dealer-indicator.dealer-2 { top: 105px; left: 50%; transform: translateX(-50%); }
+#dealer-indicator.dealer-3 { right: 150px; top: 50%; transform: translateY(-50%); }
+
+/* Trick Area */
+#trick-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 150px;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
 }
 
-.dealer-pos-0 { bottom: 180px; left: 50%; transform: translateX(-50%); }
-.dealer-pos-1 { left: 130px; top: 50%; transform: translateY(-50%); }
-.dealer-pos-2 { top: 130px; left: 50%; transform: translateX(-50%); }
-.dealer-pos-3 { right: 130px; top: 50%; transform: translateY(-50%); }
-
-/* Bidding Dialog */
+/* Bid Dialogs */
 .bid-dialog {
-    background: rgba(255, 255, 255, 0.8);
-    border: 2px solid #f1c40f;
-    border-radius: 10px;
-    padding: 8px 15px;
-    z-index: 50;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.95em;
-    white-space: nowrap;
+  position: absolute;
+  background: #ffffff;
+  color: #000000;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: bold;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  z-index: 50;
 }
 
-.bid-dialog .player-name {
-    font-weight: bold;
-    margin-right: 6px;
+.south-dialog { bottom: 110px; left: 50%; transform: translateX(-50%); }
+.west-dialog  { left: 140px; top: 45%; transform: translateY(-50%); }
+.north-dialog { top: 100px; left: 50%; transform: translateX(-50%); }
+.east-dialog  { right: 140px; top: 45%; transform: translateY(-50%); }
+
+/* Bidding Panel Pop-Up */
+#bidding-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.9);
+  padding: 20px 30px;
+  border-radius: 10px;
+  border: 2px solid #ffc107;
+  text-align: center;
+  z-index: 100;
 }
 
-.bid-dialog .bid-value {
-    font-weight: bold;
-    color: #d35400;
+#bidding-panel h3 {
+  margin-bottom: 12px;
+  color: #ffc107;
 }
 
-.bid-dialog .suit {
-    font-size: 1.2em;
-    margin-left: 4px;
+.bidding-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
-/* Position bid dialogs near each player area */
-#north .bid-dialog {
-    position: absolute;
-    top: -35px;
-    left: 50%;
-    transform: translateX(-50%);
+.bidding-controls select, .bidding-controls button {
+  padding: 6px 10px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: none;
 }
 
-#west .bid-dialog {
-    position: absolute;
-    right: -85px;
-    top: 50%;
-    transform: translateY(-50%);
+.bidding-controls button {
+  background: #ffc107;
+  color: #000;
+  font-weight: bold;
+  cursor: pointer;
 }
 
-#east .bid-dialog {
-    position: absolute;
-    left: -85px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-#south .bid-dialog {
-    position: absolute;
-    bottom: -35px;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-/* Bidding Panel */
-
-/* Welcome Screen */
-#welcome-screen {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(135deg, #1b4d3e, #0f2e1f);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-#welcome-content {
-    text-align: center;
-    color: white;
-    padding: 40px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 20px;
-    border: 3px solid #f1c40f;
-    box-shadow: 0 0 40px rgba(241,196,15,0.3);
-}
-#welcome-content h1 {
-    font-size: 2.5em;
-    margin-bottom: 30px;
-    color: #f1c40f;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-}
-#welcome-btn {
-    padding: 15px 40px;
-    font-size: 1.5em;
-    background: #f1c40f;
-    color: #1b4d3e;
-    border: none;
-    border-radius: 10px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-#welcome-btn:hover { background: #e67e22; }
-
-#overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.85);
-    display: none; /* Hidden by default */
-    justify-content: center;
-    align-items: center;
-    z-index: 200;
-}
-
-#overlay.visible {
-    display: flex;
-}
-
-#overlay-content {
-    text-align: center;
-    color: white;
-    padding: 30px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.7);
-}
-
-#overlay-btn {
-    padding: 10px 25px;
-    font-size: 1.1em;
-    cursor: pointer;
-    margin-top: 15px;
-    background: #f1c40f;
-    border: none;
-    border-radius: 5px;
-    font-weight: bold;
-}
-
-#overlay-btn:hover {
-    background: #d4ac0d;
+.bidding-controls button:hover {
+  background: #e0a800;
 }
