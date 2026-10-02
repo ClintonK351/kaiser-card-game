@@ -100,7 +100,7 @@ function hideBiddingPanel() {
 }
 
 function hideAllBidDialogs() {
-    const ids = ['bid-dialog-0', 'bid-dialog-1', 'bid-dialog-2', 'bid-dialog-3', 'bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
+    const ids = ['bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('hidden');
@@ -109,7 +109,7 @@ function hideAllBidDialogs() {
 
 function showBidDialog(playerIdx, amount, suit, isCurrent) {
     const pNames = ['South (You)', 'West', 'North (Partner)', 'East'];
-    const dialogIds = ['bid-dialog-0', 'bid-dialog-1', 'bid-dialog-2', 'bid-dialog-3', 'bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
+    const dialogIds = ['bid-dialog-south', 'bid-dialog-west', 'bid-dialog-north', 'bid-dialog-east'];
     const dialog = document.getElementById(dialogIds[playerIdx]);
     if (!dialog) return;
     dialog.classList.remove('hidden');
@@ -163,6 +163,7 @@ function finishBidding() {
     b.biddingComplete = true;
     gameState.phase = 'PLAYING';
     hideBiddingPanel();
+    hideAllBidDialogs();
     
     gameState.currentPlayer = gameState.bidding.highBidder;
     gameState.trick = { cards: [], leadSuit: null, count: 0 };
@@ -267,6 +268,7 @@ function placeBid(playerIdx, amount, suit) {
         gameState.phase = 'BIDDING';
         nextBidder();
     }
+    updateUI();
 }
 
 function passBid(playerIdx) {
@@ -283,6 +285,7 @@ function passBid(playerIdx) {
         gameState.phase = 'BIDDING';
         nextBidder();
     }
+    updateUI();
 }
 
 function nextBidder() {
@@ -607,7 +610,7 @@ function updateUI() {
             } else if (i === b.highBidder) {
                 showBidDialog(i, b.currentBid, b.trumpSuit, false);
             } else {
-                const el = document.getElementById(['bid-dialog-0','bid-dialog-1','bid-dialog-2','bid-dialog-3','bid-dialog-south','bid-dialog-west','bid-dialog-north','bid-dialog-east'][i]);
+                const el = document.getElementById(['bid-dialog-south','bid-dialog-west','bid-dialog-north','bid-dialog-east'][i]);
                 if (el) el.classList.add('hidden');
             }
         }
