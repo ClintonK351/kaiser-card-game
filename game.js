@@ -3,14 +3,16 @@ const SUIT_NAMES = { H: 'Hearts ♥', D: 'Diamonds ♦', C: 'Clubs ♣', S: 'Spa
 const SUIT_SYMBOLS = { H: '♥', D: '♦', C: '♣', S: '♠' };
 
 let gameState = {
-  phase: 'BIDDING',
+  phase: 'BIDDING', // 'BIDDING' or 'PLAYING'
   dealerIndex: 0,
   activePlayer: 1,
   highBid: { amount: 6, suit: null, playerIndex: -1 },
   bids: [null, null, null, null],
   scores: { us: 0, them: 0 },
   trumpSuit: null,
-  hands: [[], [], [], []]
+  hands: [[], [], [], []],
+  currentTrick: [], // Stores { card, playerIndex }
+  leadSuit: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,10 +26,8 @@ function createDeck() {
   const ranks = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   let deck = [];
 
-  // Standard 32-card Kaiser deck construction
   suits.forEach(suit => {
     ranks.forEach(rank => {
-      // Exclude 7 of Clubs and 7 of Hearts to allow 3 of Clubs and 5 of Hearts
       if ((suit === 'C' && rank === '7') || (suit === 'H' && rank === '7')) return;
       deck.push({ suit, rank });
     });
@@ -54,7 +54,6 @@ function dealCards() {
     gameState.hands[i % 4].push(deck[i]);
   }
 
-  // Sort South's hand by suit and rank for easy viewing
   const suitOrder = { H: 0, D: 1, C: 2, S: 3 };
   const rankOrder = { '3': 3, '5': 5, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
 
@@ -67,7 +66,7 @@ function dealCards() {
 }
 
 function initNewMatch() {
-  gameState.dealerIndex = 0; // South deals first
+  gameState.dealerIndex = 0;
   startNewHand();
 }
 
@@ -76,14 +75,13 @@ function startNewHand() {
   gameState.highBid = { amount: 6, suit: null, playerIndex: -1 };
   gameState.bids = [null, null, null, null];
   gameState.trumpSuit = null;
+  gameState.currentTrick = [];
+  gameState.leadSuit = null;
 
-  // 1. Deal cards to all players first
   dealCards();
 
-  // 2. West bids first when South is dealer
   gameState.activePlayer = (gameState.dealerIndex + 1) % 4;
 
-  // Clear dialogs
   for (let i = 0; i < 4; i++) {
     const dialog = document.getElementById(`bid-dialog-${i}`);
     if (dialog) {
@@ -92,10 +90,7 @@ function startNewHand() {
     }
   }
 
-  // 3. Render cards on table so player can see their hand
   updateUI();
-
-  // 4. Trigger bidding sequence
   checkAutoBid();
 }
 
@@ -174,11 +169,118 @@ function finishBidding() {
   if (gameState.highBid.playerIndex !== -1) {
     gameState.trumpSuit = gameState.highBid.suit;
     document.getElementById('trump-suit').textContent = SUIT_NAMES[gameState.trumpSuit] || 'None';
+    // High bidder leads the first trick
+    gameState.activePlayer = gameState.highBid.playerIndex;
   } else {
     document.getElementById('trump-suit').textContent = 'No Bid';
+    gameState.activePlayer = (gameState.dealerIndex + 1) % 4;
   }
 
   updateUI();
+  processPlayTurn();
+}
+
+function processPlayTurn() {
+  if (gameState.phase !== 'PLAYING') return;
+
+  if (gameState.activePlayer !== 0) {
+    // AI Turn
+    setTimeout(playAICard, 700);
+  }
+}
+
+function playAICard() {
+  const hand = gameState.hands[gameState.activePlayer];
+  if (!hand || hand.length === 0) return;
+
+  // Determine legal moves (must follow lead suit if possible)
+  let legalCards = hand;
+  if (gameState.leadSuit) {
+    const matching = hand.filter(c => c.suit === gameState.leadSuit);
+    if (matching.length > 0) legalCards = matching;
+  }
+
+  const chosenCard = legalCards[0];
+  playCard(gameState.activePlayer, chosenCard);
+}
+
+function handleHumanCardClick(cardIndex) {
+  if (gameState.phase !== 'PLAYING' || gameState.activePlayer !== 0) return;
+
+  const hand = gameState.hands[0];
+  const chosenCard = hand[cardIndex];
+
+  // Enforce following suit
+  if (gameState.leadSuit && chosenCard.suit !== gameState.leadSuit) {
+    const hasLeadSuit = hand.some(c => c.suit === gameState.leadSuit);
+    if (hasLeadSuit) {
+      alert(`You must follow suit (${SUIT_NAMES[gameState.leadSuit]})!`);
+      return;
+    }
+  }
+
+  playCard(0, chosenCard);
+}
+
+function playCard(playerIndex, card) {
+  // Remove card from hand
+  const hand = gameState.hands[playerIndex];
+  const cardIdx = hand.findIndex(c => c.suit === card.suit && c.rank === card.rank);
+  if (cardIdx !== -1) hand.splice(cardIdx, 1);
+
+  if (gameState.currentTrick.length === 0) {
+    gameState.leadSuit = card.suit;
+  }
+
+  gameState.currentTrick.push({ card, playerIndex });
+  updateUI();
+
+  if (gameState.currentTrick.length === 4) {
+    setTimeout(resolveTrick, 1200);
+  } else {
+    gameState.activePlayer = (gameState.activePlayer + 1) % 4;
+    processPlayTurn();
+  }
+}
+
+function getCardValue(rank) {
+  const rankOrder = { '3': 3, '5': 5, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+  return rankOrder[rank] || 0;
+}
+
+function resolveTrick() {
+  let winnerObj = gameState.currentTrick[0];
+
+  for (let i = 1; i < gameState.currentTrick.length; i++) {
+    const play = gameState.currentTrick[i];
+    const bestCard = winnerObj.card;
+    const currentCard = play.card;
+
+    // Check if current card beats bestCard
+    if (currentCard.suit === gameState.trumpSuit && bestCard.suit !== gameState.trumpSuit) {
+      winnerObj = play;
+    } else if (currentCard.suit === bestCard.suit) {
+      if (getCardValue(currentCard.rank) > getCardValue(bestCard.rank)) {
+        winnerObj = play;
+      }
+    }
+  }
+
+  // Set winner as active player for next trick
+  gameState.activePlayer = winnerObj.playerIndex;
+  gameState.currentTrick = [];
+  gameState.leadSuit = null;
+
+  updateUI();
+
+  // Check if hand is over
+  if (gameState.hands[0].length === 0) {
+    alert('Hand complete!');
+    gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
+    startNewHand();
+  } else {
+    processPlayTurn();
+  }
 }
 
 function updateUI() {
@@ -187,25 +289,26 @@ function updateUI() {
     dealerBadge.className = `dealer-${gameState.dealerIndex}`;
   }
 
-  // Clear player hands DOM
   const dirs = ['south', 'west', 'north', 'east'];
   dirs.forEach((dir) => {
     const cardContainer = document.querySelector(`#${dir} .cards-container`);
     if (cardContainer) cardContainer.innerHTML = '';
   });
 
-  // Render South (human) face-up cards
+  // Render South (human) cards with click listeners
   const southContainer = document.querySelector('#south .cards-container');
   if (southContainer && gameState.hands[0]) {
-    gameState.hands[0].forEach(card => {
+    gameState.hands[0].forEach((card, index) => {
       const cardEl = document.createElement('div');
       cardEl.className = `card ${card.suit === 'H' || card.suit === 'D' ? 'red' : 'black'}`;
       cardEl.textContent = `${card.rank}${SUIT_SYMBOLS[card.suit]}`;
+      cardEl.style.cursor = 'pointer';
+      cardEl.addEventListener('click', () => handleHumanCardClick(index));
       southContainer.appendChild(cardEl);
     });
   }
 
-  // Render face-down cards for AI opponents (West, North, East)
+  // Render face-down cards for AI opponents
   [1, 2, 3].forEach(playerIdx => {
     const dir = dirs[playerIdx];
     const container = document.querySelector(`#${dir} .cards-container`);
@@ -218,6 +321,18 @@ function updateUI() {
       });
     }
   });
+
+  // Render active trick cards in trick-area
+  const trickArea = document.getElementById('trick-area');
+  if (trickArea) {
+    trickArea.innerHTML = '';
+    gameState.currentTrick.forEach(play => {
+      const cardEl = document.createElement('div');
+      cardEl.className = `card ${play.card.suit === 'H' || play.card.suit === 'D' ? 'red' : 'black'}`;
+      cardEl.textContent = `${play.card.rank}${SUIT_SYMBOLS[play.card.suit]}`;
+      trickArea.appendChild(cardEl);
+    });
+  }
 
   // Update scores
   document.getElementById('score-us').textContent = gameState.scores.us;
