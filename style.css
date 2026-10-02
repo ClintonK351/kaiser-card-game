@@ -155,3 +155,33 @@ body {
 .bidding-controls button:hover {
   background: #e0a800;
 }
+.card {
+  width: 42px;
+  height: 60px;
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #000000;
+  border-radius: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+  box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+  user-select: none;
+}
+
+.card.red {
+  color: #d32f2f;
+}
+
+.card.black {
+  color: #000000;
+}
+
+.card.back {
+  background: #b71c1c;
+  color: #ffffff;
+  font-size: 20px;
+  border: 1px solid #ffffff;
+}
