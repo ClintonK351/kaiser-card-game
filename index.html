@@ -10,9 +10,12 @@
   <div id="game-container">
     <!-- Scoreboard -->
     <div id="scoreboard">
-      <div id="team-us">Us: <span id="score-us">0</span></div>
-      <div id="team-them">Them: <span id="score-them">0</span></div>
+      <div id="team-us">Us Score: <span id="score-us">0</span></div>
+      <div id="team-them">Them Score: <span id="score-them">0</span></div>
       <div id="trump-indicator">Trump: <span id="trump-suit">None</span></div>
+      <hr style="margin: 4px 0; border: 0; border-top: 1px solid rgba(255,255,255,0.3);" />
+      <div id="tricks-us">Us Tricks: <span id="tricks-us-count">0</span></div>
+      <div id="tricks-them">Them Tricks: <span id="tricks-them-count">0</span></div>
     </div>
 
     <!-- Player Areas -->
@@ -42,7 +45,7 @@
     <!-- Dealer Indicator -->
     <div id="dealer-indicator">DEALER</div>
 
-    <!-- Bidding Dialog Boxes (Outside player-area to prevent DOM wipes) -->
+    <!-- Bidding Dialog Boxes -->
     <div id="bid-dialog-0" class="bid-dialog south-dialog hidden"></div>
     <div id="bid-dialog-1" class="bid-dialog west-dialog hidden"></div>
     <div id="bid-dialog-2" class="bid-dialog north-dialog hidden"></div>

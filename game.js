@@ -3,15 +3,17 @@ const SUIT_NAMES = { H: 'Hearts ♥', D: 'Diamonds ♦', C: 'Clubs ♣', S: 'Spa
 const SUIT_SYMBOLS = { H: '♥', D: '♦', C: '♣', S: '♠' };
 
 let gameState = {
-  phase: 'BIDDING', // 'BIDDING' or 'PLAYING'
+  phase: 'BIDDING',
   dealerIndex: 0,
   activePlayer: 1,
   highBid: { amount: 6, suit: null, playerIndex: -1 },
   bids: [null, null, null, null],
   scores: { us: 0, them: 0 },
+  tricksWon: { us: 0, them: 0 },
+  handPoints: { us: 0, them: 0 },
   trumpSuit: null,
   hands: [[], [], [], []],
-  currentTrick: [], // Stores { card, playerIndex }
+  currentTrick: [],
   leadSuit: null
 };
 
@@ -33,8 +35,8 @@ function createDeck() {
     });
   });
 
-  deck.push({ suit: 'C', rank: '3' }); // Low card (-3 pts)
-  deck.push({ suit: 'H', rank: '5' }); // High card (+5 pts)
+  deck.push({ suit: 'C', rank: '3' }); // -3 points
+  deck.push({ suit: 'H', rank: '5' }); // +5 points
   return deck;
 }
 
@@ -66,6 +68,7 @@ function dealCards() {
 }
 
 function initNewMatch() {
+  gameState.scores = { us: 0, them: 0 };
   gameState.dealerIndex = 0;
   startNewHand();
 }
@@ -77,9 +80,10 @@ function startNewHand() {
   gameState.trumpSuit = null;
   gameState.currentTrick = [];
   gameState.leadSuit = null;
+  gameState.tricksWon = { us: 0, them: 0 };
+  gameState.handPoints = { us: 0, them: 0 };
 
   dealCards();
-
   gameState.activePlayer = (gameState.dealerIndex + 1) % 4;
 
   for (let i = 0; i < 4; i++) {
@@ -169,7 +173,6 @@ function finishBidding() {
   if (gameState.highBid.playerIndex !== -1) {
     gameState.trumpSuit = gameState.highBid.suit;
     document.getElementById('trump-suit').textContent = SUIT_NAMES[gameState.trumpSuit] || 'None';
-    // High bidder leads the first trick
     gameState.activePlayer = gameState.highBid.playerIndex;
   } else {
     document.getElementById('trump-suit').textContent = 'No Bid';
@@ -184,7 +187,6 @@ function processPlayTurn() {
   if (gameState.phase !== 'PLAYING') return;
 
   if (gameState.activePlayer !== 0) {
-    // AI Turn
     setTimeout(playAICard, 700);
   }
 }
@@ -193,7 +195,6 @@ function playAICard() {
   const hand = gameState.hands[gameState.activePlayer];
   if (!hand || hand.length === 0) return;
 
-  // Determine legal moves (must follow lead suit if possible)
   let legalCards = hand;
   if (gameState.leadSuit) {
     const matching = hand.filter(c => c.suit === gameState.leadSuit);
@@ -210,7 +211,6 @@ function handleHumanCardClick(cardIndex) {
   const hand = gameState.hands[0];
   const chosenCard = hand[cardIndex];
 
-  // Enforce following suit
   if (gameState.leadSuit && chosenCard.suit !== gameState.leadSuit) {
     const hasLeadSuit = hand.some(c => c.suit === gameState.leadSuit);
     if (hasLeadSuit) {
@@ -223,7 +223,6 @@ function handleHumanCardClick(cardIndex) {
 }
 
 function playCard(playerIndex, card) {
-  // Remove card from hand
   const hand = gameState.hands[playerIndex];
   const cardIdx = hand.findIndex(c => c.suit === card.suit && c.rank === card.rank);
   if (cardIdx !== -1) hand.splice(cardIdx, 1);
@@ -256,7 +255,6 @@ function resolveTrick() {
     const bestCard = winnerObj.card;
     const currentCard = play.card;
 
-    // Check if current card beats bestCard
     if (currentCard.suit === gameState.trumpSuit && bestCard.suit !== gameState.trumpSuit) {
       winnerObj = play;
     } else if (currentCard.suit === bestCard.suit) {
@@ -266,21 +264,57 @@ function resolveTrick() {
     }
   }
 
-  // Set winner as active player for next trick
+  const winnerTeam = (winnerObj.playerIndex === 0 || winnerObj.playerIndex === 2) ? 'us' : 'them';
+  
+  // Track tricks won
+  gameState.tricksWon[winnerTeam]++;
+
+  // Score base trick (+1 pt) and special cards (+5 for 5♥, -3 for 3♣)
+  let trickPoints = 1;
+  gameState.currentTrick.forEach(play => {
+    if (play.card.suit === 'H' && play.card.rank === '5') trickPoints += 5;
+    if (play.card.suit === 'C' && play.card.rank === '3') trickPoints -= 3;
+  });
+
+  gameState.handPoints[winnerTeam] += trickPoints;
+
   gameState.activePlayer = winnerObj.playerIndex;
   gameState.currentTrick = [];
   gameState.leadSuit = null;
 
   updateUI();
 
-  // Check if hand is over
   if (gameState.hands[0].length === 0) {
-    alert('Hand complete!');
-    gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
-    startNewHand();
+    evaluateHandScore();
   } else {
     processPlayTurn();
   }
+}
+
+function evaluateHandScore() {
+  const biddingTeam = (gameState.highBid.playerIndex === 0 || gameState.highBid.playerIndex === 2) ? 'us' : 'them';
+  const defenderTeam = biddingTeam === 'us' ? 'them' : 'us';
+  const bidAmount = gameState.highBid.amount;
+
+  let handResultMsg = `Hand Complete!\n\n`;
+
+  // Evaluate Bidding Team
+  if (gameState.handPoints[biddingTeam] >= bidAmount) {
+    gameState.scores[biddingTeam] += gameState.handPoints[biddingTeam];
+    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) made their bid of ${bidAmount} and scored ${gameState.handPoints[biddingTeam]} points.\n`;
+  } else {
+    gameState.scores[biddingTeam] -= bidAmount;
+    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) set! Failed bid of ${bidAmount}. Lost ${bidAmount} points.\n`;
+  }
+
+  // Evaluate Defender Team
+  gameState.scores[defenderTeam] += gameState.handPoints[defenderTeam];
+  handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored ${gameState.handPoints[defenderTeam]} points.`;
+
+  alert(handResultMsg);
+
+  gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
+  startNewHand();
 }
 
 function updateUI() {
@@ -295,7 +329,7 @@ function updateUI() {
     if (cardContainer) cardContainer.innerHTML = '';
   });
 
-  // Render South (human) cards with click listeners
+  // South hands
   const southContainer = document.querySelector('#south .cards-container');
   if (southContainer && gameState.hands[0]) {
     gameState.hands[0].forEach((card, index) => {
@@ -308,7 +342,7 @@ function updateUI() {
     });
   }
 
-  // Render face-down cards for AI opponents
+  // AI Opponents face-down
   [1, 2, 3].forEach(playerIdx => {
     const dir = dirs[playerIdx];
     const container = document.querySelector(`#${dir} .cards-container`);
@@ -322,7 +356,7 @@ function updateUI() {
     }
   });
 
-  // Render active trick cards in trick-area
+  // Render Trick Area
   const trickArea = document.getElementById('trick-area');
   if (trickArea) {
     trickArea.innerHTML = '';
@@ -334,7 +368,9 @@ function updateUI() {
     });
   }
 
-  // Update scores
+  // Update Game Score and Trick Counter
   document.getElementById('score-us').textContent = gameState.scores.us;
   document.getElementById('score-them').textContent = gameState.scores.them;
+  document.getElementById('tricks-us-count').textContent = gameState.tricksWon.us;
+  document.getElementById('tricks-them-count').textContent = gameState.tricksWon.them;
 }
