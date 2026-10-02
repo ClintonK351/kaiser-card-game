@@ -1,4 +1,4 @@
-const PLAYERS = ['South', 'West', 'North', 'East'];
+const PLAYERS = ['South', 'John', 'Andy', 'Dave'];
 const SUIT_NAMES = { H: 'Hearts ♥', D: 'Diamonds ♦', C: 'Clubs ♣', S: 'Spades ♠', N: 'No Trump' };
 const SUIT_SYMBOLS = { H: '♥', D: '♦', C: '♣', S: '♠' };
 
@@ -28,15 +28,16 @@ function createDeck() {
   const ranks = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   let deck = [];
 
+  // Exclude 7 of Hearts and 7 of Spades so deck size remains 32 cards
   suits.forEach(suit => {
     ranks.forEach(rank => {
-      if ((suit === 'C' && rank === '7') || (suit === 'H' && rank === '7')) return;
+      if ((suit === 'H' && rank === '7') || (suit === 'S' && rank === '7')) return;
       deck.push({ suit, rank });
     });
   });
 
-  deck.push({ suit: 'C', rank: '3' }); // -3 points
-  deck.push({ suit: 'H', rank: '5' }); // +5 points
+  deck.push({ suit: 'S', rank: '3' }); // Low card (-3 pts)
+  deck.push({ suit: 'H', rank: '5' }); // High card (+5 pts)
   return deck;
 }
 
@@ -266,14 +267,13 @@ function resolveTrick() {
 
   const winnerTeam = (winnerObj.playerIndex === 0 || winnerObj.playerIndex === 2) ? 'us' : 'them';
   
-  // Track tricks won
   gameState.tricksWon[winnerTeam]++;
 
-  // Score base trick (+1 pt) and special cards (+5 for 5♥, -3 for 3♣)
+  // Score base trick (+1 pt), 5♥ (+5 pts), and 3♠ (-3 pts)
   let trickPoints = 1;
   gameState.currentTrick.forEach(play => {
     if (play.card.suit === 'H' && play.card.rank === '5') trickPoints += 5;
-    if (play.card.suit === 'C' && play.card.rank === '3') trickPoints -= 3;
+    if (play.card.suit === 'S' && play.card.rank === '3') trickPoints -= 3;
   });
 
   gameState.handPoints[winnerTeam] += trickPoints;
@@ -298,7 +298,6 @@ function evaluateHandScore() {
 
   let handResultMsg = `Hand Complete!\n\n`;
 
-  // Evaluate Bidding Team
   if (gameState.handPoints[biddingTeam] >= bidAmount) {
     gameState.scores[biddingTeam] += gameState.handPoints[biddingTeam];
     handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) made their bid of ${bidAmount} and scored ${gameState.handPoints[biddingTeam]} points.\n`;
@@ -307,7 +306,6 @@ function evaluateHandScore() {
     handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) set! Failed bid of ${bidAmount}. Lost ${bidAmount} points.\n`;
   }
 
-  // Evaluate Defender Team
   gameState.scores[defenderTeam] += gameState.handPoints[defenderTeam];
   handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored ${gameState.handPoints[defenderTeam]} points.`;
 
@@ -329,7 +327,7 @@ function updateUI() {
     if (cardContainer) cardContainer.innerHTML = '';
   });
 
-  // South hands
+  // South hand
   const southContainer = document.querySelector('#south .cards-container');
   if (southContainer && gameState.hands[0]) {
     gameState.hands[0].forEach((card, index) => {
@@ -342,7 +340,7 @@ function updateUI() {
     });
   }
 
-  // AI Opponents face-down
+  // AI hands face-down
   [1, 2, 3].forEach(playerIdx => {
     const dir = dirs[playerIdx];
     const container = document.querySelector(`#${dir} .cards-container`);
@@ -356,19 +354,19 @@ function updateUI() {
     }
   });
 
-  // Render Trick Area
+  // Render Trick Area in Compass/Spatial Layout
   const trickArea = document.getElementById('trick-area');
   if (trickArea) {
     trickArea.innerHTML = '';
     gameState.currentTrick.forEach(play => {
       const cardEl = document.createElement('div');
-      cardEl.className = `card ${play.card.suit === 'H' || play.card.suit === 'D' ? 'red' : 'black'}`;
+      cardEl.className = `card trick-card played-${play.playerIndex} ${play.card.suit === 'H' || play.card.suit === 'D' ? 'red' : 'black'}`;
       cardEl.textContent = `${play.card.rank}${SUIT_SYMBOLS[play.card.suit]}`;
       trickArea.appendChild(cardEl);
     });
   }
 
-  // Update Game Score and Trick Counter
+  // Scoreboard updates
   document.getElementById('score-us').textContent = gameState.scores.us;
   document.getElementById('score-them').textContent = gameState.scores.them;
   document.getElementById('tricks-us-count').textContent = gameState.tricksWon.us;
