@@ -16,10 +16,10 @@ let gameState = {
     dealerIndex: 0,
     currentPlayer: 0,
     bidding: {
-        currentBid: 0, // kept in sync with gameState.currentBid
+        currentBid: 0,
         highBidder: null,
         trumpSuit: null,
-        activePlayer: 1, // kept in sync with gameState.activePlayer
+        activePlayer: 1,
         biddingComplete: false,
         history: []
     },
@@ -38,11 +38,19 @@ let gameState = {
     }
 };
 
+let timerHandles = { autoBid: null, autoPlay: null };
+
+function clearAllTimers() {
+    if (timerHandles.autoBid) { clearTimeout(timerHandles.autoBid); timerHandles.autoBid = null; }
+    if (timerHandles.autoPlay) { clearTimeout(timerHandles.autoPlay); timerHandles.autoPlay = null; }
+}
+
 /**
  * Initialize and shuffle the Kaiser deck
  */
 function createDeck() {
     let deck = [];
+    let idCounter = 0;
     SUITS.forEach(suit => {
         RANKS.forEach(rank => {
             let finalRank = rank;
@@ -54,7 +62,7 @@ function createDeck() {
             if (suit === 'Hearts' && finalRank === '5') value = 5;
             if (suit === 'Spades' && finalRank === '3') value = -3;
 
-            deck.push({ suit, rank: finalRank, value });
+            deck.push({ id: idCounter++, suit, rank: finalRank, value });
         });
     });
     return shuffle(deck);
@@ -76,7 +84,7 @@ function deal() {
             gameState.hands[p].push(gameState.deck.pop());
         }
     }
-    // Sort human hand by suit and rank for better UI
+    // Sort human hand by suit and rank
     gameState.hands[0].sort((a, b) => {
         if (a.suit !== b.suit) return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
         const rankOrder = ['3', '5', '7', '8', '9', '10', 'Jack', 'Queen', 'King', 'Ace'];
@@ -104,7 +112,6 @@ function setCurrentBid(amount) {
 function initBidding() {
     gameState.phase = 'BIDDING';
     setCurrentBid(0);
-    // Human starts first when dealer; otherwise dealer's left starts
     const firstBidder = (gameState.dealerIndex === 0) ? 0 : (gameState.dealerIndex + 1) % 4;
     setBiddingTurn(firstBidder);
     gameState.bidding = {
@@ -121,8 +128,6 @@ function initBidding() {
 }
 
 function checkBiddingComplete() {
-    // Bidding ends when there are 3 successful bids from different players
-    // OR after all 4 players have had a turn (with passes)
     const bids = gameState.bidding.history.filter(h => h.action === 'bid' || h.action === 'take');
     return bids.length >= 3 || gameState.bidding.history.length >= 4;
 }
@@ -138,7 +143,6 @@ function finishBidding() {
     gameState.phase = 'PLAYING';
     hideBiddingPanel();
     
-    // Reset trick-taking state
     gameState.currentPlayer = (gameState.dealerIndex + 1) % 4;
     gameState.trick = { cards: [], leadSuit: null, count: 0 };
     gameState.scores = {
@@ -154,7 +158,7 @@ function checkAutoBid() {
     if (gameState.phase !== 'BIDDING' || gameState.bidding.biddingComplete) return;
     
     if (gameState.activePlayer !== 0) {
-        setTimeout(() => {
+        timerHandles.autoBid = setTimeout(() => {
             const aiBid = getAIBid(gameState.activePlayer, gameState.currentBid);
             if (aiBid) {
                 placeBid(gameState.activePlayer, aiBid.amount, aiBid.suit);
@@ -165,9 +169,6 @@ function checkAutoBid() {
     }
 }
 
-/**
- * AI Bidding Logic
- */
 function getAIBid(playerIdx, currentBid) {
     const hand = gameState.hands[playerIdx];
     let suitScores = { 'Hearts': 0, 'Diamonds': 0, 'Spades': 0, 'Clubs': 0, 'No-Trump': 0 };
@@ -210,11 +211,9 @@ function getAIBid(playerIdx, currentBid) {
         }
     }
 
-    // Opening bid is 7; otherwise strictly higher than the current bid
     const minBid = Math.max(7, currentBid + 1);
     let bidAmount = minBid;
 
-    // Adjust bid based on hand strength
     if (maxScore >= 13) bidAmount = Math.max(bidAmount, 10);
     else if (maxScore >= 11) bidAmount = Math.max(bidAmount, 9);
     else if (maxScore >= 9) bidAmount = Math.max(bidAmount, 8);
@@ -232,7 +231,6 @@ function placeBid(playerIdx, amount, suit) {
     const b = gameState.bidding;
     if (gameState.phase !== 'BIDDING' || b.biddingComplete || playerIdx !== gameState.activePlayer) return;
 
-    // Opening bid must be at least 7; every later bid must be strictly higher
     if (gameState.currentBid === 0 && amount < 7) return;
     if (amount <= gameState.currentBid) return;
 
@@ -274,10 +272,6 @@ function nextBidder() {
     checkAutoBid();
 }
 
-/**
- * Trick Taking Logic
- */
-
 function isValidPlay(playerIdx, card) {
     const hand = gameState.hands[playerIdx];
     const leadSuit = gameState.trick.leadSuit;
@@ -299,7 +293,7 @@ function playCard(playerIdx, card) {
         return;
     }
     if (playerIdx !== gameState.currentPlayer) {
-        document.getElementById('status-bar').innerText = "Not your turn — current player is " + (gameState.currentPlayer + 1);
+        document.getElementById('status-bar').innerText = "Not your turn — current player is Player " + (gameState.currentPlayer + 1);
         return;
     }
     if (gameState.trick.cards.length >= 4) return;
@@ -309,22 +303,19 @@ function playCard(playerIdx, card) {
         return;
     }
 
-    // Find card by reference first, then by properties
-    let cardIdx = gameState.hands[playerIdx].indexOf(card);
-    if (cardIdx === -1) {
-        cardIdx = gameState.hands[playerIdx].findIndex(c => c.rank === card.rank && c.suit === card.suit);
-    }
+    const cardIdx = gameState.hands[playerIdx].findIndex(c => c.id === card.id);
     if (cardIdx === -1) {
         console.error("Card not found in hand:", card, "hand:", gameState.hands[playerIdx]);
         return;
     }
-    gameState.hands[playerIdx].splice(cardIdx, 1);
+    
+    const [playedCard] = gameState.hands[playerIdx].splice(cardIdx, 1);
 
     if (gameState.trick.cards.length === 0) {
-        gameState.trick.leadSuit = card.suit;
+        gameState.trick.leadSuit = playedCard.suit;
     }
 
-    gameState.trick.cards.push({ player: playerIdx, card: card });
+    gameState.trick.cards.push({ player: playerIdx, card: playedCard });
     
     updateUI();
 
@@ -397,7 +388,6 @@ function calculateFinalScore() {
     }
     s[otherTeam].finalHandScore = s[otherTeam].totalPoints;
 
-    // Update match scores
     gameState.matchScore.team1 += s.team1.finalHandScore;
     gameState.matchScore.team2 += s.team2.finalHandScore;
 
@@ -412,7 +402,6 @@ function showHandResult() {
     const btn = document.getElementById('overlay-btn');
     const s = gameState.scores;
 
-    // Check match win condition
     if (gameState.matchScore.team1 >= 52 || gameState.matchScore.team2 >= 52) {
         const winner = gameState.matchScore.team1 >= 52 ? "Team South/North" : "Team West/East";
         title.innerText = "Match Over!";
@@ -437,13 +426,8 @@ function showHandResult() {
     hideBiddingPanel();
 }
 
-/**
- * Initialize a brand new match
- */
-let autoBidTimer = null;
-let autoPlayTimer = null;
-
 function initNewMatch() {
+    clearAllTimers();
     hideBiddingPanel();
     document.getElementById('overlay').classList.add('hidden');
 
@@ -461,16 +445,13 @@ function checkAutoPlay() {
     if (gameState.phase !== 'PLAYING') return;
     if (gameState.currentPlayer === 0) return;
 
-    setTimeout(() => {
+    timerHandles.autoPlay = setTimeout(() => {
         const hand = gameState.hands[gameState.currentPlayer];
         const cardToPlay = chooseAICard(gameState.currentPlayer, hand);
         playCard(gameState.currentPlayer, cardToPlay);
     }, 1000);
 }
 
-/**
- * AI Strategic Play Logic
- */
 function chooseAICard(playerIdx, hand) {
     const t = gameState.trick;
     const b = gameState.bidding;
@@ -564,7 +545,10 @@ function renderCard(card, isFaceDown, onClick = null) {
         `;
 
         if (onClick) {
-            cardEl.onclick = () => onClick(card);
+            cardEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                onClick(card);
+            });
         }
     }
     
@@ -599,15 +583,19 @@ function updateUI() {
         const isHuman = idx === 0;
         
         gameState.hands[idx].forEach(card => {
-            const canPlay = (isHuman && gameState.phase === 'PLAYING' && gameState.currentPlayer === 0);
-            const onClick = canPlay ? (c) => playCard(idx, c) : () => {
+            const isMyTurn = (gameState.phase === 'PLAYING' && gameState.currentPlayer === 0);
+            const onClick = (selectedCard) => {
                 if (gameState.phase !== 'PLAYING') {
-                    document.getElementById('status-bar').innerText = 'Not your turn! Wait for bidding to end.';
-                } else if (gameState.currentPlayer !== 0) {
-                    document.getElementById('status-bar').innerText = 'Not your turn! It is Player ' + (gameState.currentPlayer + 1) + ' turn.';
+                    document.getElementById('status-bar').innerText = 'Not playing! Wait for bidding to end.';
+                    return;
                 }
+                if (gameState.currentPlayer !== 0) {
+                    document.getElementById('status-bar').innerText = 'Not your turn! It is Player ' + (gameState.currentPlayer + 1) + '\'s turn.';
+                    return;
+                }
+                playCard(0, selectedCard);
             };
-            const cardEl = renderCard(card, !isHuman, onClick);
+            const cardEl = renderCard(card, !isHuman, isHuman ? onClick : null);
             container.appendChild(cardEl);
         });
     });
@@ -627,8 +615,8 @@ function updateUI() {
         centerArea.appendChild(cardEl);
     });
 
-    // Always hide unless it is BIDDING and the human's turn
-    document.getElementById('bidding-panel').classList.add('hidden');
+    // Bidding UI
+    bidPanel.classList.add('hidden');
     if (gameState.phase === 'BIDDING' && gameState.activePlayer === 0) {
         bidPanel.classList.remove('hidden');
         bidOptions.innerHTML = '';
@@ -640,8 +628,7 @@ function updateUI() {
                 btn.className = 'bid-btn';
                 btn.innerText = `${i} ${s}`;
                 btn.onclick = () => {
-                    document.getElementById('bidding-panel').classList.add('hidden');
-                    gameState.phase = 'BIDDING';
+                    bidPanel.classList.add('hidden');
                     placeBid(0, i, s);
                 };
                 bidOptions.appendChild(btn);
@@ -653,8 +640,7 @@ function updateUI() {
         passBtn.className = 'bid-btn';
         passBtn.innerText = 'Pass';
         passBtn.onclick = () => {
-            document.getElementById('bidding-panel').classList.add('hidden');
-            gameState.phase = 'BIDDING';
+            bidPanel.classList.add('hidden');
             passBid(0);
         };
         bidOptions.appendChild(passBtn);
@@ -667,12 +653,3 @@ window.onload = () => {
         initNewMatch();
     };
 };
-
-
-// Fix 1: Timer variables and clear on init
-let timerHandles = { autoBid: null, autoPlay: null };
-
-function clearAllTimers() {
-    if (timerHandles.autoBid) { clearTimeout(timerHandles.autoBid); timerHandles.autoBid = null; }
-    if (timerHandles.autoPlay) { clearTimeout(timerHandles.autoPlay); timerHandles.autoPlay = null; }
-}
