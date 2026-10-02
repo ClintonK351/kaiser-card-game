@@ -419,10 +419,12 @@ function showHandResult() {
             gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
             gameState.phase = 'BIDDING';
             overlay.classList.add('hidden');
+            document.getElementById('overlay').classList.remove('visible');
             deal();
         };
     }
     overlay.classList.remove('hidden');
+    overlay.classList.add('visible');
     hideBiddingPanel();
 }
 
@@ -430,6 +432,7 @@ function initNewMatch() {
     clearAllTimers();
     hideBiddingPanel();
     document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('overlay').classList.remove('visible');
 
     gameState.phase = 'BIDDING';
     gameState.matchScore = { team1: 0, team2: 0 };
