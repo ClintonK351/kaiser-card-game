@@ -19,9 +19,15 @@
   </div>
 
   <div id="game-container">
-    <div id="north" class="player-area"></div>
-    <div id="west" class="player-area"></div>
-    <div id="east" class="player-area"></div>
+    <div id="north" class="player-area">
+      <div id="bid-dialog-north" class="bid-dialog hidden"></div>
+    </div>
+    <div id="west" class="player-area">
+      <div id="bid-dialog-west" class="bid-dialog hidden"></div>
+    </div>
+    <div id="east" class="player-area">
+      <div id="bid-dialog-east" class="bid-dialog hidden"></div>
+    </div>
     
     <div id="center-area">
       <div id="played-cards"></div>
@@ -42,7 +48,9 @@
       </div>
     </div>
 
-    <div id="south" class="player-area"></div>
+    <div id="south" class="player-area">
+      <div id="bid-dialog-south" class="bid-dialog hidden"></div>
+    </div>
   </div>
 
   <script src="game.js"></script>

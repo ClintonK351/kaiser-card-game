@@ -99,6 +99,25 @@ function hideBiddingPanel() {
     if (panel) panel.classList.add('hidden');
 }
 
+function hideAllBidDialogs() {
+    for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`bid-dialog-${i}`);
+        if (el) el.classList.add('hidden');
+    }
+}
+
+function showBidDialog(playerIdx, amount, suit, isCurrent) {
+    const pNames = ['South (You)', 'West', 'North (Partner)', 'East'];
+    const dialog = document.getElementById(`bid-dialog-${playerIdx}`);
+    if (!dialog) return;
+    dialog.classList.remove('hidden');
+    dialog.innerHTML = `
+        <span class="player-name">${pNames[playerIdx].replace(' (You)', '')}:</span>
+        <span class="bid-value">${amount}</span>
+        <span class="suit">${suit === 'No-Trump' ? '🚀' : SUIT_SYMBOLS[suit] || ''}</span>
+    `;
+}
+
 function setBiddingTurn(playerIdx) {
     gameState.activePlayer = playerIdx;
     gameState.bidding.activePlayer = playerIdx;
@@ -143,7 +162,7 @@ function finishBidding() {
     gameState.phase = 'PLAYING';
     hideBiddingPanel();
     
-    gameState.currentPlayer = (gameState.dealerIndex + 1) % 4;
+    gameState.currentPlayer = gameState.bidding.highBidder;
     gameState.trick = { cards: [], leadSuit: null, count: 0 };
     gameState.scores = {
         team1: { tricks: 0, bonus: 0, totalPoints: 0, finalHandScore: 0 },

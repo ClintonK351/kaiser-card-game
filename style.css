@@ -125,26 +125,34 @@ body {
 .dealer-pos-2 { top: 130px; left: 50%; transform: translateX(-50%); }
 .dealer-pos-3 { right: 130px; top: 50%; transform: translateY(-50%); }
 
-/* Bidding Panel */
-#bidding-panel {
+/* Bidding Dialog */
+.bid-dialog {
     position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255, 255, 255, 0.9);
-    color: black;
-    padding: 20px;
+    background: rgba(255, 255, 255, 0.8);
+    border: 2px solid #f1c40f;
     border-radius: 10px;
-    z-index: 100;
-    max-width: 400px;
-    text-align: center;
-    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    padding: 10px 15px;
+    margin: 5px;
+    z-index: 50;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.bid-btn {
-    padding: 5px 10px;
-    margin: 3px;
-    cursor: pointer;
+.bid-dialog .player-name {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.bid-dialog .bid-value {
+    font-weight: bold;
+    color: #d35400;
+}
+
+.bid-dialog .suit {
+    font-size: 1.2em;
+    margin-left: 5px;
 }
 
 /* Welcome Screen */
