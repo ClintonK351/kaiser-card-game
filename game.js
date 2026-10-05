@@ -137,7 +137,7 @@ function setupHumanBiddingUI() {
 }
 
 /* ==========================================
-   HEURISTIC AI BIDDING EVALUATION
+   ENHANCED HEURISTIC AI BIDDING EVALUATION
    ========================================== */
 function evaluateHandForBidding(pIndex) {
   const hand = gameState.hands[pIndex];
@@ -146,18 +146,26 @@ function evaluateHandForBidding(pIndex) {
   let bestScore = -1;
   let bestEstimatedTricks = 0;
 
-  // Evaluate each trump suit choice
+  const hasFiveHearts = hand.some(c => c.suit === 'H' && c.rank === '5');
+  const hasThreeSpades = hand.some(c => c.suit === 'S' && c.rank === '3');
+
   suits.forEach(suit => {
     let suitCards = hand.filter(c => c.suit === suit);
-    let topTrumps = suitCards.filter(c => RANK_ORDER[c.rank] >= 11).length;
+    let topTrumps = suitCards.filter(c => RANK_ORDER[c.rank] >= 11).length; // J, Q, K, A
     let highOffSuitAces = hand.filter(c => c.suit !== suit && c.rank === 'A').length;
-    let hasFiveHearts = hand.some(c => c.suit === 'H' && c.rank === '5');
-    let hasThreeSpades = hand.some(c => c.suit === 'S' && c.rank === '3');
 
-    // Expected trick potential
-    let estTricks = suitCards.length * 0.8 + topTrumps + highOffSuitAces;
-    if (hasFiveHearts) estTricks += 1.0;
-    if (hasThreeSpades) estTricks -= 0.5;
+    // Base trick estimation
+    let estTricks = suitCards.length * 0.85 + topTrumps * 1.1 + highOffSuitAces * 1.0;
+
+    // Heavy weight boost for holding 5♥ (+5 pts)
+    if (hasFiveHearts) {
+      estTricks += 2.0; 
+    }
+
+    // Minor penalty for holding 3♠ (-3 pts)
+    if (hasThreeSpades) {
+      estTricks -= 0.5;
+    }
 
     if (estTricks > bestScore) {
       bestScore = estTricks;
@@ -168,7 +176,7 @@ function evaluateHandForBidding(pIndex) {
 
   // Evaluate No Trump capability
   let highCardsCount = hand.filter(c => RANK_ORDER[c.rank] >= 12).length; // Q, K, A
-  let noTrumpTricks = highCardsCount * 1.1;
+  let noTrumpTricks = highCardsCount * 1.1 + (hasFiveHearts ? 1.5 : 0);
 
   if (noTrumpTricks >= 7 && noTrumpTricks > bestEstimatedTricks) {
     return { suit: 'N', estimatedTricks: Math.min(12, Math.floor(noTrumpTricks)) };
@@ -285,7 +293,7 @@ function processPlayTurn() {
 }
 
 /* ==========================================
-   HEURISTIC AI CARD PLAY EVALUATION
+   HIGH-PRIORITY 5♥ & 3♠ AI PLAY LOGIC
    ========================================== */
 function playAICard() {
   const pIndex = gameState.activePlayer;
@@ -299,51 +307,91 @@ function playAICard() {
   }
 
   let chosenCard = null;
+  const partnerIndex = (pIndex + 2) % 4;
 
-  // Rule 1: Leading a trick
+  const fiveHearts = legalCards.find(c => c.suit === 'H' && c.rank === '5');
+  const threeSpades = legalCards.find(c => c.suit === 'S' && c.rank === '3');
+
+  // -------------------------------------------------------------
+  // SCENARIO 1: LEADING A TRICK
+  // -------------------------------------------------------------
   if (gameState.currentTrick.length === 0) {
-    // Lead highest card if Ace, or strong trump if bidder
+    // Priority A: Lead high Aces/Trumps to sweep the 5♥ safely into team's pile if possible
     const aces = legalCards.filter(c => c.rank === 'A');
     if (aces.length > 0) {
       chosenCard = aces[0];
     } else {
-      // Avoid leading 5♥ or 3♠ blindly
+      // Avoid leading 5♥ or 3♠ directly when starting a trick
       const safeLeads = legalCards.filter(c => !(c.suit === 'H' && c.rank === '5') && !(c.suit === 'S' && c.rank === '3'));
       chosenCard = safeLeads.length > 0 ? safeLeads[0] : legalCards[0];
     }
-  } else {
-    // Rule 2: Following / Defending trick
+  } 
+  // -------------------------------------------------------------
+  // SCENARIO 2: FOLLOWING / DEFENDING TRICK
+  // -------------------------------------------------------------
+  else {
     let currentWinner = getCurrentTrickWinner();
-    let partnerIndex = (pIndex + 2) % 4;
     let isPartnerWinning = currentWinner && currentWinner.playerIndex === partnerIndex;
+    
+    // Check if 5♥ or 3♠ are currently in the trick on the table
+    const isFiveHeartsPlayed = gameState.currentTrick.some(p => p.card.suit === 'H' && p.card.rank === '5');
+    const isThreeSpadesPlayed = gameState.currentTrick.some(p => p.card.suit === 'S' && p.card.rank === '3');
 
-    const fiveHearts = legalCards.find(c => c.suit === 'H' && c.rank === '5');
-    const threeSpades = legalCards.find(c => c.suit === 'S' && c.rank === '3');
-
+    // --- CASE 2A: PARTNER IS CURRENTLY WINNING THE TRICK ---
     if (isPartnerWinning) {
-      // Partner is winning: Slough 5♥ (+5 pts) if possible, avoid dropping 3♠ (-3 pts)
+      // MAXIMUM PRIORITY: Slough 5♥ onto partner's winning trick!
       if (fiveHearts) {
         chosenCard = fiveHearts;
-      } else {
+      } 
+      // Do NOT throw 3♠ (-3 pts) onto partner's trick unless forced
+      else {
         const nonThreeSpades = legalCards.filter(c => !(c.suit === 'S' && c.rank === '3'));
-        chosenCard = nonThreeSpades.length > 0 ? nonThreeSpades[0] : legalCards[0];
+        if (nonThreeSpades.length > 0) {
+          // Play lowest safe card
+          nonThreeSpades.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+          chosenCard = nonThreeSpades[0];
+        } else {
+          chosenCard = threeSpades;
+        }
       }
-    } else {
-      // Opponent is winning: dump 3♠ if losing trick, try to win if low cost
-      if (threeSpades && gameState.currentTrick.length === 3) {
-        // Last player to act, dump 3♠ on opponents
-        chosenCard = threeSpades;
-      } else {
-        // Find winning card option if available
+    } 
+    // --- CASE 2B: OPPONENT IS CURRENTLY WINNING THE TRICK ---
+    else {
+      // PRIORITY 1: 5♥ IS ON THE TABLE! MUST TRY TO WIN THIS TRICK AT ALL COSTS!
+      if (isFiveHeartsPlayed) {
         let winningCards = legalCards.filter(c => beatsCurrentBest(c, currentWinner.card));
         if (winningCards.length > 0) {
-          // Play lowest winning card
+          // Play highest winning trump/card to secure the 5♥
+          winningCards.sort((a, b) => RANK_ORDER[b.rank] - RANK_ORDER[a.rank]);
+          chosenCard = winningCards[0];
+        }
+      }
+
+      // PRIORITY 2: OPPONENT IS WINNING AND WE CAN'T OVERTAKE -> DUMP 3♠ ON OPPONENTS
+      if (!chosenCard && threeSpades) {
+        let winningCards = legalCards.filter(c => beatsCurrentBest(c, currentWinner.card));
+        // If we can't beat opponent's card OR if 3♠ is legal to drop
+        if (winningCards.length === 0 || gameState.leadSuit === 'S') {
+          chosenCard = threeSpades;
+        }
+      }
+
+      // PRIORITY 3: STANDARD DEFENSIVE WINNING / SLOUGHING
+      if (!chosenCard) {
+        let winningCards = legalCards.filter(c => beatsCurrentBest(c, currentWinner.card));
+        if (winningCards.length > 0) {
+          // Win trick with lowest necessary card
           winningCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
           chosenCard = winningCards[0];
         } else {
-          // Play lowest card to minimize loss
-          legalCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
-          chosenCard = legalCards[0];
+          // Lose trick: slough lowest card, preserving trumps/Aces
+          const safeLosses = legalCards.filter(c => !(c.suit === 'H' && c.rank === '5'));
+          if (safeLosses.length > 0) {
+            safeLosses.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+            chosenCard = safeLosses[0];
+          } else {
+            chosenCard = legalCards[0];
+          }
         }
       }
     }
@@ -446,23 +494,22 @@ function evaluateHandScore() {
   const defenderTeam = biddingTeam === 'us' ? 'them' : 'us';
   const bidAmount = gameState.highBid.amount;
   const isNoTrump = (gameState.trumpSuit === 'N');
-  const multiplier = isNoTrump ? 2 : 1;
 
-  let handResultMsg = isNoTrump ? `Hand Complete (NO TRUMP - DOUBLE POINTS)!\n\n` : `Hand Complete!\n\n`;
+  let handResultMsg = isNoTrump ? `Hand Complete (NO TRUMP - Standard Points)!\n\n` : `Hand Complete!\n\n`;
 
-  // Bidding team score evaluation
+  // Bidding team score evaluation (No Trump doubling disabled per rules)
   if (gameState.handPoints[biddingTeam] >= bidAmount) {
-    const gained = gameState.handPoints[biddingTeam] * multiplier;
+    const gained = gameState.handPoints[biddingTeam];
     gameState.scores[biddingTeam] += gained;
     handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) made their bid of ${bidAmount} (took ${gameState.handPoints[biddingTeam]} pts) and scored +${gained} points.\n`;
   } else {
-    const penalty = bidAmount * multiplier;
+    const penalty = bidAmount;
     gameState.scores[biddingTeam] -= penalty;
     handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) set! Failed bid of ${bidAmount}. Lost -${penalty} points.\n`;
   }
 
   // Defending team score evaluation
-  const defenderGained = gameState.handPoints[defenderTeam] * multiplier;
+  const defenderGained = gameState.handPoints[defenderTeam];
   gameState.scores[defenderTeam] += defenderGained;
   handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored +${defenderGained} points.`;
 
