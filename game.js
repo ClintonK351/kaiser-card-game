@@ -1,6 +1,7 @@
 const PLAYERS = ['South', 'John', 'Andy', 'Dave'];
 const SUIT_NAMES = { H: 'Hearts ♥', D: 'Diamonds ♦', C: 'Clubs ♣', S: 'Spades ♠', N: 'No Trump' };
 const SUIT_SYMBOLS = { H: '♥', D: '♦', C: '♣', S: '♠' };
+const RANK_ORDER = { '3': 3, '5': 5, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
 
 let gameState = {
   phase: 'BIDDING',
@@ -14,13 +15,15 @@ let gameState = {
   trumpSuit: null,
   hands: [[], [], [], []],
   currentTrick: [],
-  leadSuit: null
+  leadSuit: null,
+  isStuckDealer: false
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-start-game').addEventListener('click', startNewMatch);
+  document.getElementById('btn-restart-game').addEventListener('click', startNewMatch);
   document.getElementById('btn-submit-bid').addEventListener('click', handleHumanBid);
   document.getElementById('btn-pass').addEventListener('click', handleHumanPass);
-  initNewMatch();
 });
 
 function createDeck() {
@@ -28,7 +31,6 @@ function createDeck() {
   const ranks = ['7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   let deck = [];
 
-  // Exclude 7 of Hearts and 7 of Spades so deck size remains 32 cards
   suits.forEach(suit => {
     ranks.forEach(rank => {
       if ((suit === 'H' && rank === '7') || (suit === 'S' && rank === '7')) return;
@@ -58,17 +60,18 @@ function dealCards() {
   }
 
   const suitOrder = { H: 0, D: 1, C: 2, S: 3 };
-  const rankOrder = { '3': 3, '5': 5, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
 
   gameState.hands[0].sort((a, b) => {
     if (suitOrder[a.suit] !== suitOrder[b.suit]) {
       return suitOrder[a.suit] - suitOrder[b.suit];
     }
-    return rankOrder[a.rank] - rankOrder[b.rank];
+    return RANK_ORDER[a.rank] - RANK_ORDER[b.rank];
   });
 }
 
-function initNewMatch() {
+function startNewMatch() {
+  document.getElementById('welcome-modal').classList.add('hidden');
+  document.getElementById('gameover-modal').classList.add('hidden');
   gameState.scores = { us: 0, them: 0 };
   gameState.dealerIndex = 0;
   startNewHand();
@@ -83,6 +86,7 @@ function startNewHand() {
   gameState.leadSuit = null;
   gameState.tricksWon = { us: 0, them: 0 };
   gameState.handPoints = { us: 0, them: 0 };
+  gameState.isStuckDealer = false;
 
   dealCards();
   gameState.activePlayer = (gameState.dealerIndex + 1) % 4;
@@ -103,18 +107,91 @@ function checkAutoBid() {
   if (gameState.phase !== 'BIDDING') return;
 
   if (gameState.activePlayer === 0) {
-    document.getElementById('bidding-panel').classList.remove('hidden');
+    setupHumanBiddingUI();
   } else {
     document.getElementById('bidding-panel').classList.add('hidden');
     setTimeout(processAIBid, 600);
   }
 }
 
+function setupHumanBiddingUI() {
+  const panel = document.getElementById('bidding-panel');
+  const btnPass = document.getElementById('btn-pass');
+  const amountSelect = document.getElementById('bid-amount');
+  const header = document.getElementById('bidding-header');
+  const amountLabel = document.getElementById('lbl-bid-amount');
+
+  if (gameState.isStuckDealer) {
+    header.textContent = "You are Stuck Dealer (Forced Bid 7)";
+    btnPass.classList.add('hidden');
+    amountSelect.classList.add('hidden');
+    amountLabel.classList.add('hidden');
+  } else {
+    header.textContent = "Your Bid";
+    btnPass.classList.remove('hidden');
+    amountSelect.classList.remove('hidden');
+    amountLabel.classList.remove('hidden');
+  }
+
+  panel.classList.remove('hidden');
+}
+
+/* ==========================================
+   HEURISTIC AI BIDDING EVALUATION
+   ========================================== */
+function evaluateHandForBidding(pIndex) {
+  const hand = gameState.hands[pIndex];
+  const suits = ['H', 'D', 'C', 'S'];
+  let bestSuit = 'H';
+  let bestScore = -1;
+  let bestEstimatedTricks = 0;
+
+  // Evaluate each trump suit choice
+  suits.forEach(suit => {
+    let suitCards = hand.filter(c => c.suit === suit);
+    let topTrumps = suitCards.filter(c => RANK_ORDER[c.rank] >= 11).length;
+    let highOffSuitAces = hand.filter(c => c.suit !== suit && c.rank === 'A').length;
+    let hasFiveHearts = hand.some(c => c.suit === 'H' && c.rank === '5');
+    let hasThreeSpades = hand.some(c => c.suit === 'S' && c.rank === '3');
+
+    // Expected trick potential
+    let estTricks = suitCards.length * 0.8 + topTrumps + highOffSuitAces;
+    if (hasFiveHearts) estTricks += 1.0;
+    if (hasThreeSpades) estTricks -= 0.5;
+
+    if (estTricks > bestScore) {
+      bestScore = estTricks;
+      bestSuit = suit;
+      bestEstimatedTricks = Math.floor(estTricks);
+    }
+  });
+
+  // Evaluate No Trump capability
+  let highCardsCount = hand.filter(c => RANK_ORDER[c.rank] >= 12).length; // Q, K, A
+  let noTrumpTricks = highCardsCount * 1.1;
+
+  if (noTrumpTricks >= 7 && noTrumpTricks > bestEstimatedTricks) {
+    return { suit: 'N', estimatedTricks: Math.min(12, Math.floor(noTrumpTricks)) };
+  }
+
+  return { suit: bestSuit, estimatedTricks: Math.min(12, bestEstimatedTricks) };
+}
+
 function processAIBid() {
   const pIndex = gameState.activePlayer;
 
-  if (gameState.highBid.amount < 7) {
-    recordBid(pIndex, 7, 'H');
+  if (gameState.isStuckDealer) {
+    const evalResult = evaluateHandForBidding(pIndex);
+    recordBid(pIndex, 7, evalResult.suit);
+    advanceBidding();
+    return;
+  }
+
+  const evalResult = evaluateHandForBidding(pIndex);
+  const minRequiredBid = gameState.highBid.amount + 1;
+
+  if (evalResult.estimatedTricks >= minRequiredBid && minRequiredBid <= 12) {
+    recordBid(pIndex, minRequiredBid, evalResult.suit);
   } else {
     recordBid(pIndex, 0, 'PASS');
   }
@@ -123,15 +200,19 @@ function processAIBid() {
 }
 
 function handleHumanBid() {
-  const amount = parseInt(document.getElementById('bid-amount').value, 10);
   const suit = document.getElementById('bid-suit').value;
 
-  if (amount <= gameState.highBid.amount) {
-    alert(`Bid must be higher than ${gameState.highBid.amount}`);
-    return;
+  if (gameState.isStuckDealer) {
+    recordBid(0, 7, suit);
+  } else {
+    const amount = parseInt(document.getElementById('bid-amount').value, 10);
+    if (amount <= gameState.highBid.amount) {
+      alert(`Bid must be higher than ${gameState.highBid.amount}`);
+      return;
+    }
+    recordBid(0, amount, suit);
   }
 
-  recordBid(0, amount, suit);
   document.getElementById('bidding-panel').classList.add('hidden');
   advanceBidding();
 }
@@ -161,12 +242,23 @@ function recordBid(playerIndex, amount, suit) {
 function advanceBidding() {
   const totalBids = gameState.bids.filter(b => b !== null).length;
 
-  if (totalBids >= 4) {
-    finishBidding();
-  } else {
+  if (totalBids < 4) {
     gameState.activePlayer = (gameState.activePlayer + 1) % 4;
     checkAutoBid();
+    return;
   }
+
+  // Check if all players passed
+  const allPassed = gameState.bids.every(b => b === 'Pass');
+  if (allPassed && !gameState.isStuckDealer) {
+    gameState.isStuckDealer = true;
+    gameState.activePlayer = gameState.dealerIndex; // Forced dealer bid
+    gameState.bids[gameState.dealerIndex] = null; // Reset dealer's bid slot for prompt
+    checkAutoBid();
+    return;
+  }
+
+  finishBidding();
 }
 
 function finishBidding() {
@@ -192,8 +284,12 @@ function processPlayTurn() {
   }
 }
 
+/* ==========================================
+   HEURISTIC AI CARD PLAY EVALUATION
+   ========================================== */
 function playAICard() {
-  const hand = gameState.hands[gameState.activePlayer];
+  const pIndex = gameState.activePlayer;
+  const hand = gameState.hands[pIndex];
   if (!hand || hand.length === 0) return;
 
   let legalCards = hand;
@@ -202,8 +298,82 @@ function playAICard() {
     if (matching.length > 0) legalCards = matching;
   }
 
-  const chosenCard = legalCards[0];
-  playCard(gameState.activePlayer, chosenCard);
+  let chosenCard = null;
+
+  // Rule 1: Leading a trick
+  if (gameState.currentTrick.length === 0) {
+    // Lead highest card if Ace, or strong trump if bidder
+    const aces = legalCards.filter(c => c.rank === 'A');
+    if (aces.length > 0) {
+      chosenCard = aces[0];
+    } else {
+      // Avoid leading 5♥ or 3♠ blindly
+      const safeLeads = legalCards.filter(c => !(c.suit === 'H' && c.rank === '5') && !(c.suit === 'S' && c.rank === '3'));
+      chosenCard = safeLeads.length > 0 ? safeLeads[0] : legalCards[0];
+    }
+  } else {
+    // Rule 2: Following / Defending trick
+    let currentWinner = getCurrentTrickWinner();
+    let partnerIndex = (pIndex + 2) % 4;
+    let isPartnerWinning = currentWinner && currentWinner.playerIndex === partnerIndex;
+
+    const fiveHearts = legalCards.find(c => c.suit === 'H' && c.rank === '5');
+    const threeSpades = legalCards.find(c => c.suit === 'S' && c.rank === '3');
+
+    if (isPartnerWinning) {
+      // Partner is winning: Slough 5♥ (+5 pts) if possible, avoid dropping 3♠ (-3 pts)
+      if (fiveHearts) {
+        chosenCard = fiveHearts;
+      } else {
+        const nonThreeSpades = legalCards.filter(c => !(c.suit === 'S' && c.rank === '3'));
+        chosenCard = nonThreeSpades.length > 0 ? nonThreeSpades[0] : legalCards[0];
+      }
+    } else {
+      // Opponent is winning: dump 3♠ if losing trick, try to win if low cost
+      if (threeSpades && gameState.currentTrick.length === 3) {
+        // Last player to act, dump 3♠ on opponents
+        chosenCard = threeSpades;
+      } else {
+        // Find winning card option if available
+        let winningCards = legalCards.filter(c => beatsCurrentBest(c, currentWinner.card));
+        if (winningCards.length > 0) {
+          // Play lowest winning card
+          winningCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+          chosenCard = winningCards[0];
+        } else {
+          // Play lowest card to minimize loss
+          legalCards.sort((a, b) => RANK_ORDER[a.rank] - RANK_ORDER[b.rank]);
+          chosenCard = legalCards[0];
+        }
+      }
+    }
+  }
+
+  if (!chosenCard) chosenCard = legalCards[0];
+  playCard(pIndex, chosenCard);
+}
+
+function getCurrentTrickWinner() {
+  if (gameState.currentTrick.length === 0) return null;
+  let winnerObj = gameState.currentTrick[0];
+
+  for (let i = 1; i < gameState.currentTrick.length; i++) {
+    const play = gameState.currentTrick[i];
+    if (beatsCurrentBest(play.card, winnerObj.card)) {
+      winnerObj = play;
+    }
+  }
+  return winnerObj;
+}
+
+function beatsCurrentBest(cardCandidate, bestCard) {
+  if (cardCandidate.suit === gameState.trumpSuit && bestCard.suit !== gameState.trumpSuit) {
+    return true;
+  }
+  if (cardCandidate.suit === bestCard.suit) {
+    return RANK_ORDER[cardCandidate.rank] > RANK_ORDER[bestCard.rank];
+  }
+  return false;
 }
 
 function handleHumanCardClick(cardIndex) {
@@ -243,28 +413,8 @@ function playCard(playerIndex, card) {
   }
 }
 
-function getCardValue(rank) {
-  const rankOrder = { '3': 3, '5': 5, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
-  return rankOrder[rank] || 0;
-}
-
 function resolveTrick() {
-  let winnerObj = gameState.currentTrick[0];
-
-  for (let i = 1; i < gameState.currentTrick.length; i++) {
-    const play = gameState.currentTrick[i];
-    const bestCard = winnerObj.card;
-    const currentCard = play.card;
-
-    if (currentCard.suit === gameState.trumpSuit && bestCard.suit !== gameState.trumpSuit) {
-      winnerObj = play;
-    } else if (currentCard.suit === bestCard.suit) {
-      if (getCardValue(currentCard.rank) > getCardValue(bestCard.rank)) {
-        winnerObj = play;
-      }
-    }
-  }
-
+  let winnerObj = getCurrentTrickWinner();
   const winnerTeam = (winnerObj.playerIndex === 0 || winnerObj.playerIndex === 2) ? 'us' : 'them';
   
   gameState.tricksWon[winnerTeam]++;
@@ -295,24 +445,68 @@ function evaluateHandScore() {
   const biddingTeam = (gameState.highBid.playerIndex === 0 || gameState.highBid.playerIndex === 2) ? 'us' : 'them';
   const defenderTeam = biddingTeam === 'us' ? 'them' : 'us';
   const bidAmount = gameState.highBid.amount;
+  const isNoTrump = (gameState.trumpSuit === 'N');
+  const multiplier = isNoTrump ? 2 : 1;
 
-  let handResultMsg = `Hand Complete!\n\n`;
+  let handResultMsg = isNoTrump ? `Hand Complete (NO TRUMP - DOUBLE POINTS)!\n\n` : `Hand Complete!\n\n`;
 
+  // Bidding team score evaluation
   if (gameState.handPoints[biddingTeam] >= bidAmount) {
-    gameState.scores[biddingTeam] += gameState.handPoints[biddingTeam];
-    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) made their bid of ${bidAmount} and scored ${gameState.handPoints[biddingTeam]} points.\n`;
+    const gained = gameState.handPoints[biddingTeam] * multiplier;
+    gameState.scores[biddingTeam] += gained;
+    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) made their bid of ${bidAmount} (took ${gameState.handPoints[biddingTeam]} pts) and scored +${gained} points.\n`;
   } else {
-    gameState.scores[biddingTeam] -= bidAmount;
-    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) set! Failed bid of ${bidAmount}. Lost ${bidAmount} points.\n`;
+    const penalty = bidAmount * multiplier;
+    gameState.scores[biddingTeam] -= penalty;
+    handResultMsg += `Bidding team (${biddingTeam.toUpperCase()}) set! Failed bid of ${bidAmount}. Lost -${penalty} points.\n`;
   }
 
-  gameState.scores[defenderTeam] += gameState.handPoints[defenderTeam];
-  handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored ${gameState.handPoints[defenderTeam]} points.`;
+  // Defending team score evaluation
+  const defenderGained = gameState.handPoints[defenderTeam] * multiplier;
+  gameState.scores[defenderTeam] += defenderGained;
+  handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored +${defenderGained} points.`;
 
   alert(handResultMsg);
 
+  // Check Game Over Conditions (Win at 52, Lose at -52)
+  if (checkMatchEnding()) return;
+
   gameState.dealerIndex = (gameState.dealerIndex + 1) % 4;
   startNewHand();
+}
+
+function checkMatchEnding() {
+  const us = gameState.scores.us;
+  const them = gameState.scores.them;
+  let gameOver = false;
+  let title = "";
+  let msg = "";
+
+  if (us >= 52) {
+    title = "Congratulations! You Won!";
+    msg = `Your team reached ${us} points!`;
+    gameOver = true;
+  } else if (them >= 52) {
+    title = "Game Over - Opponents Won";
+    msg = `Opponents reached ${them} points.`;
+    gameOver = true;
+  } else if (us <= -52) {
+    title = "Game Over - Defeat";
+    msg = `Your team dropped to ${us} points (-52 threshold reached).`;
+    gameOver = true;
+  } else if (them <= -52) {
+    title = "Victory!";
+    msg = `Opponents dropped to ${them} points (-52 threshold reached).`;
+    gameOver = true;
+  }
+
+  if (gameOver) {
+    document.getElementById('gameover-title').textContent = title;
+    document.getElementById('gameover-message').textContent = msg;
+    document.getElementById('gameover-modal').classList.remove('hidden');
+    return true;
+  }
+  return false;
 }
 
 function updateUI() {
@@ -354,7 +548,7 @@ function updateUI() {
     }
   });
 
-  // Render Trick Area in Compass/Spatial Layout
+  // Spatial Trick Area Rendering
   const trickArea = document.getElementById('trick-area');
   if (trickArea) {
     trickArea.innerHTML = '';

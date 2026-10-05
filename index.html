@@ -3,11 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kaiser Card Game</title>
+  <title>3-Spot (Nault Family Version)</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="game-container">
+    <!-- Welcome Overlay -->
+    <div id="welcome-modal" class="modal-overlay">
+      <div class="modal-card">
+        <h1>Welcome to the Nault family version of 3-Spot</h1>
+        <p>A 32-card trick-taking game where precision bidding and high-value spots count!</p>
+        <button id="btn-start-game" class="primary-btn">Start Game</button>
+      </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <h1 id="gameover-title">Game Over</h1>
+        <p id="gameover-message"></p>
+        <button id="btn-restart-game" class="primary-btn">Play Again</button>
+      </div>
+    </div>
+
     <!-- Scoreboard -->
     <div id="scoreboard">
       <div id="team-us">Us Score: <span id="score-us">0</span></div>
@@ -53,9 +71,9 @@
 
     <!-- Human Bidding Controls -->
     <div id="bidding-panel" class="hidden">
-      <h3>Your Bid</h3>
+      <h3 id="bidding-header">Your Bid</h3>
       <div class="bidding-controls">
-        <label for="bid-amount">Bid:</label>
+        <label for="bid-amount" id="lbl-bid-amount">Bid:</label>
         <select id="bid-amount">
           <option value="7">7</option>
           <option value="8">8</option>
