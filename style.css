@@ -79,6 +79,31 @@ body {
   background: #e0a800;
 }
 
+/* Andy's Broomstick Quote Box */
+.broomstick-dialog {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px dashed #ffc107;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 15px 0;
+  text-align: left;
+}
+
+.broomstick-dialog .speaker-name {
+  font-weight: bold;
+  color: #ffc107;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.broomstick-dialog .quote-text {
+  font-style: italic;
+  font-size: 16px;
+  color: #fff;
+  margin: 0;
+  text-align: center;
+}
+
 /* Scoreboard */
 #scoreboard {
   position: absolute;

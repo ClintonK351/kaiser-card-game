@@ -465,7 +465,6 @@ function evaluateHandScore() {
   let handResultMsg = isNoTrump ? `Hand Complete (NO TRUMP CONTRACT)!\n\n` : `Hand Complete!\n\n`;
 
   if (isNoTrump) {
-    // No-Trump specific scoring rules
     if (gameState.handPoints[biddingTeam] >= bidAmount) {
       const gained = gameState.handPoints[biddingTeam] * 2;
       gameState.scores[biddingTeam] += gained;
@@ -480,7 +479,6 @@ function evaluateHandScore() {
     gameState.scores[defenderTeam] += defenderGained;
     handResultMsg += `Defenders (${defenderTeam.toUpperCase()}) scored double raw points: +${defenderGained} points.`;
   } else {
-    // Standard suit scoring rules
     if (gameState.handPoints[biddingTeam] >= bidAmount) {
       const gained = gameState.handPoints[biddingTeam];
       gameState.scores[biddingTeam] += gained;
@@ -510,6 +508,7 @@ function checkMatchEnding() {
   let gameOver = false;
   let title = "";
   let msg = "";
+  let isLoss = false;
 
   if (us >= 52) {
     title = "Congratulations! You Won!";
@@ -519,10 +518,12 @@ function checkMatchEnding() {
     title = "Game Over - Opponents Won";
     msg = `Opponents reached ${them} points.`;
     gameOver = true;
+    isLoss = true;
   } else if (us <= -52) {
     title = "Game Over - Defeat";
     msg = `Your team dropped to ${us} points (-52 threshold reached).`;
     gameOver = true;
+    isLoss = true;
   } else if (them <= -52) {
     title = "Victory!";
     msg = `Opponents dropped to ${them} points (-52 threshold reached).`;
@@ -532,6 +533,16 @@ function checkMatchEnding() {
   if (gameOver) {
     document.getElementById('gameover-title').textContent = title;
     document.getElementById('gameover-message').textContent = msg;
+
+    const broomstickBox = document.getElementById('broomstick-box');
+    if (broomstickBox) {
+      if (isLoss) {
+        broomstickBox.classList.remove('hidden');
+      } else {
+        broomstickBox.classList.add('hidden');
+      }
+    }
+
     document.getElementById('gameover-modal').classList.remove('hidden');
     return true;
   }
