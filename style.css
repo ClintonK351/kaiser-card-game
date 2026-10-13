@@ -153,12 +153,13 @@ body {
   padding: 2px 6px;
   border-radius: 3px;
   text-transform: uppercase;
+  z-index: 40;
 }
 
 #dealer-indicator.dealer-0 { bottom: 115px; left: 50%; transform: translateX(-50%); }
-#dealer-indicator.dealer-1 { left: 150px; top: 50%; transform: translateY(-50%); }
+#dealer-indicator.dealer-1 { left: 160px; top: 50%; transform: translateY(-50%); }
 #dealer-indicator.dealer-2 { top: 105px; left: 50%; transform: translateX(-50%); }
-#dealer-indicator.dealer-3 { right: 150px; top: 50%; transform: translateY(-50%); }
+#dealer-indicator.dealer-3 { right: 160px; top: 50%; transform: translateY(-50%); }
 
 /* Trick Area Layout */
 #trick-area {
@@ -181,7 +182,7 @@ body {
 .trick-card.played-2 { top: 10px; left: 50%; transform: translateX(-50%); }
 .trick-card.played-3 { right: 15px; top: 50%; transform: translateY(-50%); }
 
-/* Bid Dialog Boxes */
+/* Bid Dialog Boxes - Repositioned so they never overlap player names */
 .bid-dialog {
   position: absolute;
   background: #ffffff;
@@ -192,12 +193,13 @@ body {
   font-weight: bold;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   z-index: 50;
+  white-space: nowrap;
 }
 
 .south-dialog { bottom: 110px; left: 50%; transform: translateX(-50%); }
-.west-dialog  { left: 140px; top: 45%; transform: translateY(-50%); }
-.north-dialog { top: 100px; left: 50%; transform: translateX(-50%); }
-.east-dialog  { right: 140px; top: 45%; transform: translateY(-50%); }
+.west-dialog  { left: 170px; top: 38%; transform: translateY(-50%); }
+.north-dialog { top: 95px; left: 50%; transform: translateX(-50%); }
+.east-dialog  { right: 170px; top: 38%; transform: translateY(-50%); }
 
 /* Bidding Panel */
 #bidding-panel {
